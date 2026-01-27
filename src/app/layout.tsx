@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-slate-900">
-        <SiteHeader logoSrc="/antigua-boats-logo.png" />
+        <SiteHeader />
 
         {/* Page content */}
         <div className="min-h-[calc(100vh-64px)]">{children}</div>
