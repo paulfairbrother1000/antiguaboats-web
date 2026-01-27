@@ -1,5 +1,5 @@
 import { sbServer } from "@/lib/supabaseServer";
-import { GalleryCarousel } from "@/components/GalleryCarousel";
+import GalleryCarousel  from "@/components/GalleryCarousel";
 import { CharterPricingCard } from "@/components/CharterPricingCard";
 
 const FALLBACK: Record<string, any> = {
