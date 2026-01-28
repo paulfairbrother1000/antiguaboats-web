@@ -7,7 +7,7 @@ export default async function PaceShuttleTiles() {
   if (!routes.length) {
     return (
       <div className="rounded-2xl border bg-white p-6 text-slate-700">
-        Shuttle routes are not available yet (PACE_SHUTTLES_URL / PACE_API_TOKEN not configured).
+        Shuttle routes are not available yet (PACE_PARTNER_BASE_URL / PACE_API_TOKEN not configured).
       </div>
     );
   }

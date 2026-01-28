@@ -9,7 +9,7 @@ export type PaceShuttleRoute = {
 };
 
 export async function fetchPaceShuttleRoutes(): Promise<PaceShuttleRoute[]> {
-  const url = process.env.PACE_SHUTTLES_URL;
+  const url = process.env.PACE_PARTNER_BASE_URL;
   const token = process.env.PACE_API_TOKEN;
 
   if (!url || !token) return [];
