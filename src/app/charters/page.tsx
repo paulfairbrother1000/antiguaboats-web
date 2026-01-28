@@ -49,7 +49,6 @@ export default function ChartersPage() {
             className="h-[320px] w-full object-cover md:h-[420px]"
           />
 
-          {/* Overlay */}
           <div className="absolute inset-0 bg-black/30" />
 
           <div className="absolute inset-0 flex items-center">
@@ -97,15 +96,18 @@ export default function ChartersPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {charterTiles.map((tile) => (
             <div key={tile.slug} className="overflow-hidden rounded-3xl border bg-white">
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={tile.imageSrc}
-                  alt={tile.title}
-                  className="h-40 w-full object-cover"
-                  loading="lazy"
-                />
-              </div>
+              {/* Image should be clickable */}
+              <Link href={`/charters/${tile.slug}`} className="block">
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={tile.imageSrc}
+                    alt={tile.title}
+                    className="h-40 w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              </Link>
 
               <div className="p-5">
                 <div className="text-base font-extrabold text-slate-900">{tile.title}</div>
