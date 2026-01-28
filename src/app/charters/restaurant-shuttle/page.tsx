@@ -74,11 +74,27 @@ export default async function RestaurantShuttlePage() {
 
         <div className="mt-4 space-y-3 text-slate-700 leading-relaxed">
           <p>
-            Antigua Boats is a proud partner of the Pace Shuttle scheme.
+            Antigua Boats is a proud partner of{" "}
+            <a
+              href="https://www.paceshuttles.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold underline"
+            >
+              Pace Shuttles
+            </a>.
           </p>
 
           <p>
-            Pace Shuttles is an organisation which allows local{" "}
+            <a
+              href="https://www.paceshuttles.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold underline"
+            >
+              Pace Shuttles
+            </a>{" "}
+            is an organisation which allows local{" "}
             <span className="font-semibold">{vehicleType}</span> operators in{" "}
             <span className="font-semibold">{country}</span> to provide luxury{" "}
             <span className="font-semibold">{vehicleType}</span> shuttle journeys to stunning
@@ -86,13 +102,22 @@ export default async function RestaurantShuttlePage() {
           </p>
 
           <p>
-            Journeys are selected on the Pace Shuttle portal which identifies and manages the
-            appropriate operators, seat allocation, pricing and payment.
+            Journeys are selected on the{" "}
+            <a
+              href="https://www.paceshuttles.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold underline"
+            >
+              Pace Shuttles
+            </a>{" "}
+            portal which identifies and manages the appropriate operators, seat allocation,
+            pricing and payment.
           </p>
         </div>
       </section>
 
-      {/* 2) PaceShuttles API tiles */}
+      {/* 2) Pace Shuttles API tiles */}
       <section className="mt-8">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -118,27 +143,48 @@ export default async function RestaurantShuttlePage() {
 
             <p className="mt-3 text-slate-700 leading-relaxed">
               Visit{" "}
-              <span className="font-semibold">www.paceshuttles.com</span> to book your{" "}
-              <span className="font-semibold">{vehicleType}</span> shuttle in{" "}
+              <a
+                href="https://www.paceshuttles.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold underline"
+              >
+                www.paceshuttles.com
+              </a>{" "}
+              to book your <span className="font-semibold">{vehicleType}</span> shuttle in{" "}
               <span className="font-semibold">{country}</span>.
             </p>
 
             <p className="mt-3 text-slate-700 leading-relaxed">
-              <span className="font-semibold">Note:</span> Although Antigua Boats is a member of the
-              Pace Shuttle network, you will not necessarily receive your ride from Antigua Boats.
-              Vessels from all participating operators are available to the Pace Shuttle{" "}
-              <span className="font-semibold">{vehicleType}</span> selection process, and are
-              allocated 24 hours prior to the journey taking place.
+              <span className="font-semibold">Note:</span> Although Antigua Boats is a member of the{" "}
+              <a
+                href="https://www.paceshuttles.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold underline"
+              >
+                Pace Shuttles
+              </a>{" "}
+              network, you will not necessarily receive your ride from Antigua Boats.
+              Vessels from all participating operators are available to the{" "}
+              <span className="font-semibold">{vehicleType}</span> selection process,
+              and are allocated 24 hours prior to the journey taking place.
             </p>
           </div>
 
           <div className="shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/paceshuttles-logo.jpeg"
-              alt="Pace Shuttles"
-              className="h-16 w-auto rounded-xl border bg-white p-2"
-            />
+            <a
+              href="https://www.paceshuttles.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/paceshuttles-logo.jpeg"
+                alt="Pace Shuttles"
+                className="h-16 w-auto rounded-xl border bg-white p-2 hover:opacity-90"
+              />
+            </a>
           </div>
         </div>
       </section>
