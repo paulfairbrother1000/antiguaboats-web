@@ -9,58 +9,99 @@ function isAllowed(url: URL) {
   return h.endsWith(".supabase.co");
 }
 
+function snippet(s: string, n = 600) {
+  return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const raw = searchParams.get("url");
-  if (!raw) return NextResponse.json({ error: "Missing url" }, { status: 400 });
-
-  let url: URL;
   try {
-    url = new URL(raw);
-  } catch {
-    return NextResponse.json({ error: "Invalid url" }, { status: 400 });
-  }
+    const { searchParams } = new URL(req.url);
+    const raw = searchParams.get("url");
+    if (!raw) return NextResponse.json({ error: "Missing url" }, { status: 400 });
 
-  if (!isAllowed(url)) {
-    return NextResponse.json({ error: "Host not allowed" }, { status: 403 });
-  }
+    let url: URL;
+    try {
+      url = new URL(raw.trim());
+    } catch {
+      return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+    }
 
-  try {
-    const upstream = await fetch(url.toString(), {
-      headers: {
-        accept: "image/*",
-        "user-agent": "AntiguaBoats/1.0 (+https://www.antigua-boats.com)",
-      },
-      cache: "force-cache",
-    });
+    // Force https if someone passed http
+    if (url.protocol !== "https:") {
+      url = new URL(url.toString().replace(/^http:/i, "https:"));
+    }
 
+    if (!isAllowed(url)) {
+      return NextResponse.json({ error: "Host not allowed" }, { status: 403 });
+    }
+
+    // Timeout (prevents long-hanging requests becoming 500s)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    let upstream: Response;
+    try {
+      upstream = await fetch(url.toString(), {
+        signal: controller.signal,
+        redirect: "follow",
+        headers: {
+          accept: "image/*",
+          "user-agent": "AntiguaBoats/1.0 (+https://www.antigua-boats.com)",
+          referer: "https://www.antigua-boats.com/",
+        },
+        cache: "force-cache",
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const contentType = upstream.headers.get("content-type") || "";
+
+    // If upstream returns non-OK, provide useful diagnostics
     if (!upstream.ok) {
       const text = await upstream.text().catch(() => "");
       return NextResponse.json(
         {
           error: "Upstream image fetch failed",
-          status: upstream.status,
-          body: text,
+          upstream_status: upstream.status,
+          upstream_content_type: contentType,
+          upstream_body: snippet(text),
+          url: url.toString(),
         },
         { status: 502 }
       );
     }
 
-    const contentType = upstream.headers.get("content-type") || "image/jpeg";
+    // Sometimes CDNs return 200 with an HTML/JSON body; treat as failure
+    if (!contentType.toLowerCase().startsWith("image/")) {
+      const text = await upstream.text().catch(() => "");
+      return NextResponse.json(
+        {
+          error: "Upstream returned non-image content",
+          upstream_status: upstream.status,
+          upstream_content_type: contentType,
+          upstream_body: snippet(text),
+          url: url.toString(),
+        },
+        { status: 502 }
+      );
+    }
+
     const bytes = await upstream.arrayBuffer();
 
     return new NextResponse(bytes, {
       headers: {
-        "content-type": contentType,
+        "content-type": contentType || "image/jpeg",
         "cache-control": "public, max-age=86400, s-maxage=86400",
       },
     });
   } catch (err: any) {
-    return NextResponse.json(
-      {
-        error: err?.message ?? "Failed to fetch image",
-      },
-      { status: 500 }
-    );
+    // IMPORTANT: never throw — always respond
+    const msg =
+      err?.name === "AbortError"
+        ? "Upstream image fetch timed out"
+        : err?.message ?? "Failed to fetch image";
+
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 }
