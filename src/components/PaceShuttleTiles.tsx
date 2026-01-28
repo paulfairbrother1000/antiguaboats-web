@@ -12,96 +12,36 @@ type ShuttleTile = {
   destination?: { id: string; name: string; image_url?: string };
   schedule?: string;
 
-  // NOTE: Pace payload may include some of these (names can vary).
-  // We’ll read them safely at runtime and show if present.
+  // Pace payload (current)
+  cheapest?: {
+    unit_minor?: number;
+    currency?: string;
+    display_major_rounded_up?: number;
+    applies_to?: { date_iso?: string; pickup_time?: string };
+    max_qty_at_price?: number;
+  };
+
+  // Legacy/alternate fields (keep for safety)
   lowest_price?: number;
   currency?: string;
   available_seats?: number;
   seats_available?: number;
   min_price?: number;
   from_price?: number;
+
+  // sometimes present in other builds
+  pricing?: any;
+  prices?: any[];
 };
 
 type ShuttleRoutesResponse = {
   source?: string;
   fetched_at?: string;
   tiles?: ShuttleTile[];
-  // If upstream error:
   error?: string;
   status?: number;
   body?: string;
 };
-
-function pickLowestPrice(t: any): number | undefined {
-  // 1) common direct fields
-  const direct =
-    t.lowest_price ??
-    t.lowestPrice ??
-    t.from_price ??
-    t.fromPrice ??
-    t.min_price ??
-    t.minPrice ??
-    t.lowest_available_price ??
-    t.lowestAvailablePrice;
-
-  if (typeof direct === "number") return direct;
-
-  // 2) common nested shapes: prices/fare options arrays
-  // e.g. prices: [{ amount: 120, currency: "USD" }, ...]
-  const arrCandidates = [
-    t.prices,
-    t.fares,
-    t.price_options,
-    t.priceOptions,
-    t.lowest_prices,
-    t.lowestPrices,
-  ].filter(Array.isArray);
-
-  for (const arr of arrCandidates) {
-    const nums = (arr as any[])
-      .map((x) => x?.amount ?? x?.price ?? x?.value ?? x?.cents)
-      .filter((v) => typeof v === "number")
-      .map((v) => (v > 10000 ? v / 100 : v)); // handle cents if present
-    if (nums.length) return Math.min(...nums);
-  }
-
-  // 3) common nested object: pricing: { lowest: 120 } etc.
-  const nested =
-    t.pricing?.lowest ??
-    t.pricing?.from ??
-    t.pricing?.min ??
-    t.pricing?.lowest_price ??
-    t.pricing?.lowestPrice;
-
-  if (typeof nested === "number") return nested;
-
-  return undefined;
-}
-
-function pickCurrencyCode(t: any): string | undefined {
-  const c =
-    t.currency ??
-    t.ccy ??
-    t.iso_currency ??
-    t.isoCurrency ??
-    t.pricing?.currency ??
-    t.pricing?.ccy;
-
-  return typeof c === "string" ? c : undefined;
-}
-
-function formatFromPrice(currency: string | undefined, amount: number) {
-  const ccy = currency || "USD";
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: ccy,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${ccy} ${Math.round(amount)}`;
-  }
-}
 
 function Skeleton() {
   return (
@@ -117,8 +57,8 @@ function Skeleton() {
 }
 
 function proxiedImageUrl(u?: string) {
-  // Proxy remote images through our own domain to avoid client DNS/CORS surprises.
-  // Requires: src/app/api/img/route.ts
+  // Proxy remote images through our own domain.
+  // src/app/api/img/route.ts
   return u ? `/api/img?url=${encodeURIComponent(u)}` : "/placeholder.jpg";
 }
 
@@ -133,6 +73,72 @@ function pickSeats(t: ShuttleTile): number | undefined {
     anyT.liveSeats;
 
   return typeof v === "number" ? v : undefined;
+}
+
+function formatMoney(currency: string | undefined, amountMajor: number) {
+  const ccy = currency || "GBP";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: ccy,
+      maximumFractionDigits: 0,
+    }).format(amountMajor);
+  } catch {
+    return `${ccy} ${Math.round(amountMajor)}`;
+  }
+}
+
+function pickCheapestFromPace(t: ShuttleTile): { major?: number; currency?: string } {
+  const major = t?.cheapest?.display_major_rounded_up;
+  const currency = t?.cheapest?.currency;
+
+  if (typeof major === "number") {
+    return { major, currency: typeof currency === "string" ? currency : "GBP" };
+  }
+  return {};
+}
+
+// fallback if cheapest isn’t present (keeps older builds working)
+function pickLowestPriceFallback(t: ShuttleTile): { major?: number; currency?: string } {
+  const anyT = t as any;
+  const direct =
+    anyT.lowest_price ??
+    anyT.lowestPrice ??
+    anyT.from_price ??
+    anyT.fromPrice ??
+    anyT.min_price ??
+    anyT.minPrice ??
+    anyT.lowest_available_price ??
+    anyT.lowestAvailablePrice ??
+    anyT.pricing?.lowest ??
+    anyT.pricing?.from ??
+    anyT.pricing?.min;
+
+  if (typeof direct === "number") {
+    const c =
+      anyT.currency ??
+      anyT.ccy ??
+      anyT.iso_currency ??
+      anyT.isoCurrency ??
+      anyT.pricing?.currency ??
+      anyT.pricing?.ccy;
+
+    return { major: direct, currency: typeof c === "string" ? c : "GBP" };
+  }
+
+  // arrays (rare)
+  const arr = [anyT.prices, anyT.fares, anyT.price_options, anyT.priceOptions].find(Array.isArray);
+  if (Array.isArray(arr)) {
+    const nums = arr
+      .map((x: any) => x?.display_major_rounded_up ?? x?.amount ?? x?.price ?? x?.value ?? x?.cents)
+      .filter((v: any) => typeof v === "number")
+      .map((v: number) => (v > 10000 ? v / 100 : v));
+    if (nums.length) {
+      return { major: Math.min(...nums), currency: "GBP" };
+    }
+  }
+
+  return {};
 }
 
 export default function PaceShuttleTiles() {
@@ -158,16 +164,11 @@ export default function PaceShuttleTiles() {
         const json = (await res.json()) as ShuttleRoutesResponse;
 
         if (!cancelled) {
-          // If the proxy returned an error payload
-          if (json?.error) {
-            throw new Error(json.error);
-          }
+          if (json?.error) throw new Error(json.error);
           setData(json);
         }
       } catch (e: any) {
-        if (!cancelled) {
-          setError(e?.message ?? "Failed to load shuttle routes");
-        }
+        if (!cancelled) setError(e?.message ?? "Failed to load shuttle routes");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -210,17 +211,25 @@ export default function PaceShuttleTiles() {
       {tiles.map((t) => {
         const seats = pickSeats(t);
 
-        // "From $xx" (lowest available price per route)
-        const anyT = t as any;
-        const lowest = pickLowestPrice(anyT);
-        const ccy = pickCurrencyCode(anyT);
+        // Prefer Pace "cheapest" (current API), fallback to older fields if needed
+        const cheapest = pickCheapestFromPace(t);
+        const fallback = pickLowestPriceFallback(t);
+
+        const hasPrice =
+          typeof cheapest.major === "number" || typeof fallback.major === "number";
+
+        const priceMajor =
+          typeof cheapest.major === "number" ? cheapest.major : fallback.major;
+
+        const priceCurrency =
+          typeof cheapest.major === "number" ? cheapest.currency : fallback.currency;
 
         return (
           <div key={t.route_id} className="relative overflow-hidden rounded-3xl border bg-white">
-            {/* Price badge */}
-            {typeof lowest === "number" && (
+            {/* Price pill (top-right of card) */}
+            {hasPrice && typeof priceMajor === "number" && (
               <div className="absolute right-3 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-extrabold text-slate-900 shadow">
-                From {formatFromPrice(ccy, lowest)}
+                From {formatMoney(priceCurrency, priceMajor)}
               </div>
             )}
 
@@ -273,10 +282,8 @@ export default function PaceShuttleTiles() {
 
               {/* Live meta (only show if present) */}
               {typeof seats === "number" && (
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
-                  <div>
-                    <span className="font-semibold">{seats}</span> seats
-                  </div>
+                <div className="mt-2 text-sm text-slate-700">
+                  <span className="font-semibold">{seats}</span> seats
                 </div>
               )}
 
