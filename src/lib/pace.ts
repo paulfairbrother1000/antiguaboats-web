@@ -22,7 +22,7 @@ if (!enabled) return [];
       body: JSON.stringify({ fromISO, toISO }),
       cache: "no-store",
     });
-
+ 
     // If Pace returns non-200 (e.g. 404), ignore and keep site running.
     if (!res.ok) return [];
 
