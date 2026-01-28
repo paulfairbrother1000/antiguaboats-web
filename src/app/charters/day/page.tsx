@@ -15,8 +15,8 @@ export default function FullDayCharterPage() {
   // Put images here: /public/charters/fullday/hero.jpg, img1.jpg ... img4.jpg
   const folder = "/charters/fullday";
 
-  // Optional: paste any YouTube URL (watch / share / embed all fine)
-  const youtubeUrl = "https://www.youtube.com/watch?v=VIDEO_ID_HERE";
+  // YouTube (live link supported)
+  const youtubeUrl = "https://www.youtube.com/live/pIfhcodEbls";
 
   return (
     <CharterTemplate

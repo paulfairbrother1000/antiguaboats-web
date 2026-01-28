@@ -20,16 +20,23 @@ function getYouTubeEmbedUrl(url?: string) {
       return id ? `https://www.youtube.com/embed/${id}` : null;
     }
 
-    // youtube.com/watch?v=<id>
     if (u.hostname.includes("youtube.com")) {
+      // youtube.com/watch?v=<id>
       const v = u.searchParams.get("v");
       if (v) return `https://www.youtube.com/embed/${v}`;
 
-      // youtube.com/embed/<id>
       const parts = u.pathname.split("/").filter(Boolean);
+
+      // youtube.com/embed/<id>
       const embedIndex = parts.indexOf("embed");
       if (embedIndex >= 0 && parts[embedIndex + 1]) {
         return `https://www.youtube.com/embed/${parts[embedIndex + 1]}`;
+      }
+
+      // youtube.com/live/<id>
+      const liveIndex = parts.indexOf("live");
+      if (liveIndex >= 0 && parts[liveIndex + 1]) {
+        return `https://www.youtube.com/embed/${parts[liveIndex + 1]}`;
       }
     }
 
