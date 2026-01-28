@@ -19,7 +19,7 @@ export default function HalfDayCharterPage() {
   const folder = "/charters/halfday";
 
   // If you don't have a Half Day video yet, keep this undefined (video section will not render)
-  const youtubeUrl = const youtubeUrl = "https://www.youtube.com/live/pIfhcodEbls";
+  const youtubeUrl = "https://www.youtube.com/live/pIfhcodEbls";
 ;
 
   return (
