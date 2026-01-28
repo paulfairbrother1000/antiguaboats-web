@@ -8,15 +8,15 @@ export default function GalleryCarousel({
   className = "",
   heightClass = "h-[520px]",
   caption = "Silver Lady • Nor-Tech Performance",
-  ctaHref = "/availability?charter=day",
   ctaLabel = "Book Silver Lady",
+  ctaHref = "/availability?charter=day",
 }: {
   images: { url: string; alt?: string }[];
   className?: string;
   heightClass?: string;
   caption?: string;
-  ctaHref?: string;
   ctaLabel?: string;
+  ctaHref?: string;
 }) {
   const safeImages = useMemo(() => images.filter(Boolean), [images]);
   const [idx, setIdx] = useState(0);
@@ -41,15 +41,17 @@ export default function GalleryCarousel({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
 
         {/* ✅ caption */}
-        <div className="pointer-events-none absolute bottom-4 left-4 text-white">
-          <div className="text-sm font-semibold tracking-wide">{caption}</div>
+        <div className="absolute left-5 bottom-5 flex items-center gap-3">
+          <div className="rounded-full bg-white/85 px-4 py-2 text-sm font-semibold text-slate-900 backdrop-blur">
+            {caption}
+          </div>
         </div>
 
         {/* ✅ Book button */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute right-5 bottom-5">
           <Link
             href={ctaHref}
-            className="inline-flex items-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-sky-700"
+            className="inline-flex items-center rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow hover:bg-sky-700"
           >
             {ctaLabel}
           </Link>
@@ -59,14 +61,14 @@ export default function GalleryCarousel({
           <>
             <button
               onClick={prev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border px-3 py-2 shadow hover:bg-white"
+              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border px-4 py-3 shadow hover:bg-white"
               aria-label="Previous"
             >
               ‹
             </button>
             <button
               onClick={next}
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border px-3 py-2 shadow hover:bg-white"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border px-4 py-3 shadow hover:bg-white"
               aria-label="Next"
             >
               ›

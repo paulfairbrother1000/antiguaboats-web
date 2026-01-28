@@ -21,18 +21,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>© {new Date().getFullYear()} Antigua Boats • Jolly Harbour, Antigua</div>
               <div className="flex gap-4">
-                <a className="hover:underline" href="#" aria-label="Facebook">
-                  Facebook
-                </a>
-                <a className="hover:underline" href="#" aria-label="Instagram">
-                  Instagram
-                </a>
-                <a className="hover:underline" href="#" aria-label="YouTube">
-                  YouTube
-                </a>
-                <a className="hover:underline" href="#" aria-label="TikTok">
-                  TikTok
-                </a>
+                <a className="hover:underline" href="#" aria-label="Facebook">Facebook</a>
+                <a className="hover:underline" href="#" aria-label="Instagram">Instagram</a>
+                <a className="hover:underline" href="#" aria-label="YouTube">YouTube</a>
+                <a className="hover:underline" href="#" aria-label="TikTok">TikTok</a>
               </div>
             </div>
           </div>

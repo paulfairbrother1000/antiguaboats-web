@@ -1,18 +1,15 @@
-export type ShuttleRoute = {
+export type PaceShuttleRoute = {
   id: string;
-  title: string;
-  from: string;
-  to: string;
-  frequency?: string;
+  title: string;        // "Jolly Harbour → Shirley Heights"
+  subtitle?: string;    // "Every Sunday" etc
+  price_gbp?: number;
   next_departure?: string;
-  price?: number;
-  currency?: string;
-  image_url?: string;
-  source: "pace";
+  image_url?: string;   // IMPORTANT: remote image
+  href?: string;        // optional deep link
 };
 
-export async function fetchPaceShuttleRoutes(): Promise<ShuttleRoute[]> {
-  const url = process.env.PACE_SHUTTLES_SHUTTLE_ROUTES_URL;
+export async function fetchPaceShuttleRoutes(): Promise<PaceShuttleRoute[]> {
+  const url = process.env.PACE_SHUTTLES_URL;
   const token = process.env.PACE_API_TOKEN;
 
   if (!url || !token) return [];
@@ -20,31 +17,23 @@ export async function fetchPaceShuttleRoutes(): Promise<ShuttleRoute[]> {
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
+      headers: { authorization: `Bearer ${token}` },
       cache: "no-store",
     });
 
     if (!res.ok) return [];
 
-    const json = (await res.json()) as any;
+    // Expecting: { routes: [...] }
+    const json = (await res.json()) as { routes?: any[] };
 
-    // Expecting something like: { routes: [...] }
-    const routes = (json.routes ?? json.data ?? []) as any[];
-
-    return routes.map((r, idx) => ({
+    return (json.routes ?? []).map((r, idx) => ({
       id: String(r.id ?? idx),
-      title: String(r.title ?? `${r.from ?? "Jolly Harbour"} → ${r.to ?? "Destination"}`),
-      from: String(r.from ?? r.origin ?? "Jolly Harbour"),
-      to: String(r.to ?? r.destination ?? "Destination"),
-      frequency: r.frequency ? String(r.frequency) : undefined,
-      next_departure: r.next_departure ? String(r.next_departure) : r.next ? String(r.next) : undefined,
-      price: typeof r.price === "number" ? r.price : r.price ? Number(r.price) : undefined,
-      currency: r.currency ? String(r.currency) : "USD",
-      image_url: r.image_url ? String(r.image_url) : r.image ? String(r.image) : undefined,
-      source: "pace",
+      title: String(r.title ?? r.name ?? "Shuttle Route"),
+      subtitle: r.subtitle ? String(r.subtitle) : undefined,
+      price_gbp: typeof r.price_gbp === "number" ? r.price_gbp : undefined,
+      next_departure: r.next_departure ? String(r.next_departure) : undefined,
+      image_url: r.image_url ? String(r.image_url) : undefined,
+      href: r.href ? String(r.href) : undefined,
     }));
   } catch {
     return [];

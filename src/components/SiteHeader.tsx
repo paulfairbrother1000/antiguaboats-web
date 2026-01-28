@@ -28,7 +28,7 @@ export default function SiteHeader() {
           <img
             src="/antigua-boats-logo.png"
             alt="Antigua Boats"
-            className="h-14 sm:h-16 w-auto" // ✅ bigger logo
+            className="h-14 md:h-16 w-auto"   // ✅ bigger
           />
         </Link>
 
@@ -44,9 +44,10 @@ export default function SiteHeader() {
               {i.label}
             </Link>
           ))}
+
           <Link
             href="/availability?charter=day"
-            className="ml-2 inline-flex items-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+            className="ml-2 inline-flex items-center rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
           >
             Book Now
           </Link>
