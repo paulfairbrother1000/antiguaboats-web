@@ -123,6 +123,20 @@ function pickLowestPriceFallback(t: ShuttleTile): { major?: number; currency?: s
   return {};
 }
 
+function deriveCountry(tiles: ShuttleTile[]): string | null {
+  const countries = Array.from(
+    new Set(
+      tiles
+        .map((t) => (t.country || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!countries.length) return null;
+  if (countries.length === 1) return countries[0];
+  return "multiple countries";
+}
+
 export default function PaceShuttleTiles() {
   const [data, setData] = useState<ShuttleRoutesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +177,7 @@ export default function PaceShuttleTiles() {
   }, []);
 
   const tiles = useMemo(() => data?.tiles ?? [], [data]);
+  const country = useMemo(() => deriveCountry(tiles), [tiles]);
 
   if (loading) return <Skeleton />;
 
@@ -188,98 +203,107 @@ export default function PaceShuttleTiles() {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {tiles.map((t) => {
-        const cheapest = pickCheapestFromPace(t);
-        const fallback = pickLowestPriceFallback(t);
+    <div>
+      {/* Dynamic section title */}
+      <div className="mb-5">
+        <h2 className="text-2xl font-extrabold text-slate-900">
+          Available shuttle routes{country ? ` in ${country}` : ""}
+        </h2>
+      </div>
 
-        const priceMajor =
-          typeof cheapest.major === "number" ? cheapest.major : fallback.major;
+      <div className="grid gap-4 sm:grid-cols-2">
+        {tiles.map((t) => {
+          const cheapest = pickCheapestFromPace(t);
+          const fallback = pickLowestPriceFallback(t);
 
-        const priceCurrency =
-          typeof cheapest.major === "number" ? cheapest.currency : fallback.currency;
+          const priceMajor =
+            typeof cheapest.major === "number" ? cheapest.major : fallback.major;
 
-        const hasPrice = typeof priceMajor === "number";
+          const priceCurrency =
+            typeof cheapest.major === "number" ? cheapest.currency : fallback.currency;
 
-        return (
-          <div key={t.route_id} className="overflow-hidden rounded-3xl border bg-white">
-            {/* Images */}
-            <div className="grid grid-cols-2 gap-0">
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={proxiedImageUrl(t.pickup?.image_url)}
-                  alt={t.pickup?.name || "Pickup"}
-                  className="h-36 w-full object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if (!img.dataset.fallback) {
-                      img.dataset.fallback = "1";
-                      img.src = "/placeholder.jpg";
-                    }
-                  }}
-                />
-                <div className="absolute bottom-2 left-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900">
-                  {t.pickup?.name ?? "Pickup"}
+          const hasPrice = typeof priceMajor === "number";
+
+          return (
+            <div key={t.route_id} className="overflow-hidden rounded-3xl border bg-white">
+              {/* Images */}
+              <div className="grid grid-cols-2 gap-0">
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={proxiedImageUrl(t.pickup?.image_url)}
+                    alt={t.pickup?.name || "Pickup"}
+                    className="h-36 w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if (!img.dataset.fallback) {
+                        img.dataset.fallback = "1";
+                        img.src = "/placeholder.jpg";
+                      }
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900">
+                    {t.pickup?.name ?? "Pickup"}
+                  </div>
+                </div>
+
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={proxiedImageUrl(t.destination?.image_url)}
+                    alt={t.destination?.name || "Destination"}
+                    className="h-36 w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if (!img.dataset.fallback) {
+                        img.dataset.fallback = "1";
+                        img.src = "/placeholder.jpg";
+                      }
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900">
+                    {t.destination?.name ?? "Destination"}
+                  </div>
                 </div>
               </div>
 
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={proxiedImageUrl(t.destination?.image_url)}
-                  alt={t.destination?.name || "Destination"}
-                  className="h-36 w-full object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if (!img.dataset.fallback) {
-                      img.dataset.fallback = "1";
-                      img.src = "/placeholder.jpg";
-                    }
-                  }}
-                />
-                <div className="absolute bottom-2 left-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900">
-                  {t.destination?.name ?? "Destination"}
+              {/* Price under images (right aligned) */}
+              <div className="flex items-center justify-end px-4 pt-2">
+                {hasPrice ? (
+                  <div className="text-sm font-extrabold text-slate-900">
+                    From {formatMoney(priceCurrency, priceMajor as number)}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-500"> </div>
+                )}
+              </div>
+
+              {/* Content (tighter spacing) */}
+              <div className="px-4 pb-4 pt-2">
+                <div className="text-sm font-semibold text-slate-500">
+                  Return trip by {t.vehicle_type ?? "Shuttle"}
+                </div>
+
+                <div className="mt-1 text-lg font-extrabold text-slate-900">{t.route_name}</div>
+
+                {t.schedule ? (
+                  <div className="mt-2 text-sm text-slate-600 whitespace-pre-line">{t.schedule}</div>
+                ) : (
+                  <div className="mt-2 text-sm text-slate-600">Live availability and pricing</div>
+                )}
+
+                <div className="mt-3 flex items-center justify-end">
+                  <div className="text-xs text-slate-500">
+                    Updated: {data?.fetched_at ? new Date(data.fetched_at).toLocaleString() : "—"}
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Price under images (right aligned) */}
-            <div className="flex items-center justify-end px-4 pt-2">
-              {hasPrice ? (
-                <div className="text-sm font-extrabold text-slate-900">
-                  From {formatMoney(priceCurrency, priceMajor as number)}
-                </div>
-              ) : (
-                <div className="text-sm text-slate-500"> </div>
-              )}
-            </div>
-
-            {/* Content (tighter spacing) */}
-            <div className="px-4 pb-4 pt-2">
-              <div className="text-sm font-semibold text-slate-500">
-                Return trip by {t.vehicle_type ?? "Shuttle"}
-              </div>
-
-              <div className="mt-1 text-lg font-extrabold text-slate-900">{t.route_name}</div>
-
-              {t.schedule ? (
-                <div className="mt-2 text-sm text-slate-600 whitespace-pre-line">{t.schedule}</div>
-              ) : (
-                <div className="mt-2 text-sm text-slate-600">Live availability and pricing</div>
-              )}
-
-              <div className="mt-3 flex items-center justify-end">
-                <div className="text-xs text-slate-500">
-                  Updated: {data?.fetched_at ? new Date(data.fetched_at).toLocaleString() : "—"}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

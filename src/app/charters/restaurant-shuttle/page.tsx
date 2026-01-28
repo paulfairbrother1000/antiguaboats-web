@@ -41,6 +41,7 @@ export default async function RestaurantShuttlePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-slate-500">Charters</div>
@@ -117,22 +118,9 @@ export default async function RestaurantShuttlePage() {
         </div>
       </section>
 
-      {/* 2) Pace Shuttles API tiles */}
+      {/* 2) Pace Shuttles tiles (title rendered inside component) */}
       <section className="mt-8">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-900">
-              Available shuttle routes
-            </h2>
-            <p className="mt-1 text-slate-600">
-              Live seats and lowest available prices.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <PaceShuttleTiles />
-        </div>
+        <PaceShuttleTiles />
       </section>
 
       {/* 3) Good to know */}
