@@ -34,6 +34,12 @@ export const CHARTER_TILES: CharterTile[] = [
   },
 ];
 
+function hrefForSlug(slug: CharterTile["slug"]) {
+  // Restaurant Shuttle page is /charters/restaurant-shuttle (not /charters/shuttle)
+  if (slug === "shuttle") return "/charters/restaurant-shuttle";
+  return `/charters/${slug}`;
+}
+
 export default function CharterTiles({
   tiles = CHARTER_TILES,
   showViewAll = false,
@@ -63,25 +69,33 @@ export default function CharterTiles({
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {tiles.map((t) => (
-            <div key={t.slug} className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-              <div className="relative">
-                <img src={t.imageSrc} alt={t.title} className="h-40 w-full object-cover" />
-              </div>
-              <div className="p-5">
-                <div className="text-lg font-bold text-slate-900">{t.title}</div>
-                <div className="mt-2 text-sm text-slate-600">{t.desc}</div>
+          {tiles.map((t) => {
+            const href = hrefForSlug(t.slug);
 
-                {/* ✅ Correct: links to charter detail pages */}
-                <Link
-                  href={`/charters/${t.slug}`}
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:underline"
-                >
-                  Book now <span aria-hidden>→</span>
-                </Link>
+            return (
+              <div key={t.slug} className="overflow-hidden rounded-3xl border bg-white shadow-sm">
+                <div className="relative">
+                  <Link href={href} aria-label={`${t.title} details`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={t.imageSrc} alt={t.title} className="h-40 w-full object-cover" />
+                  </Link>
+                </div>
+
+                <div className="p-5">
+                  <div className="text-lg font-bold text-slate-900">{t.title}</div>
+                  <div className="mt-2 text-sm text-slate-600">{t.desc}</div>
+
+                  {/* More Info (as requested) */}
+                  <Link
+                    href={href}
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:underline"
+                  >
+                    More info <span aria-hidden>→</span>
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
