@@ -21,14 +21,53 @@ function deriveMeta(data: ShuttleRoutesResponse | null | undefined) {
   return { country, vehicleType };
 }
 
+function getYouTubeEmbedUrl(url?: string) {
+  if (!url) return null;
+
+  try {
+    const u = new URL(url);
+
+    // youtu.be/<id>
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.replace("/", "");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+
+    if (u.hostname.includes("youtube.com")) {
+      // youtube.com/watch?v=<id>
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+
+      const parts = u.pathname.split("/").filter(Boolean);
+
+      // youtube.com/embed/<id>
+      const embedIndex = parts.indexOf("embed");
+      if (embedIndex >= 0 && parts[embedIndex + 1]) {
+        return `https://www.youtube.com/embed/${parts[embedIndex + 1]}`;
+      }
+
+      // youtube.com/live/<id>
+      const liveIndex = parts.indexOf("live");
+      if (liveIndex >= 0 && parts[liveIndex + 1]) {
+        return `https://www.youtube.com/embed/${parts[liveIndex + 1]}`;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function RestaurantShuttlePage() {
   let metaData: ShuttleRoutesResponse | null = null;
 
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/shuttle-routes`,
-      { cache: "no-store" }
-    );
+    const base =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+    const res = await fetch(`${base}/api/shuttle-routes`, { cache: "no-store" });
 
     if (res.ok) {
       metaData = (await res.json()) as ShuttleRoutesResponse;
@@ -39,37 +78,61 @@ export default async function RestaurantShuttlePage() {
 
   const { country, vehicleType } = deriveMeta(metaData);
 
+  const title = "Restaurant Shuttle";
+  const subtitle = "Arrive by sea for lunch at Nobu, Catherine’s Café and more.";
+  const hero = "/charters/shuttle/hero.jpg";
+
+  // Same video as the other charter pages for now
+  const youtubeUrl = "https://www.youtube.com/live/pIfhcodEbls";
+  const embed = getYouTubeEmbedUrl(youtubeUrl);
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold text-slate-500">Charters</div>
-          <h1 className="mt-1 text-4xl font-black tracking-tight text-slate-900">
-            Restaurant Shuttle
-          </h1>
-          <p className="mt-2 text-slate-600">
-            Arrive by sea for lunch at Nobu, Catherine’s Café and more.
-          </p>
-        </div>
+      {/* HERO (matches charter page look/feel) */}
+      <section className="mt-2 overflow-hidden rounded-3xl border bg-slate-100">
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={hero}
+            alt={title}
+            className="h-[320px] w-full object-cover md:h-[420px]"
+            loading="eager"
+          />
+          <div className="absolute inset-0 bg-black/35" />
 
-        <div className="flex gap-3">
-          <Link
-            href="/charters"
-            className="rounded-2xl border px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-          >
-            Back to Charters
-          </Link>
-          <Link
-            href="/availability?charter=shuttle"
-            className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-          >
-            Check Availability
-          </Link>
-        </div>
-      </div>
+          {/* Overlay header + buttons */}
+          <div className="absolute inset-0 flex items-end">
+            <div className="w-full p-6 md:p-10">
+              <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-white/80">Charters</div>
+                  <div className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">
+                    {title}
+                  </div>
+                  <div className="mt-2 text-white/90 md:text-lg">{subtitle}</div>
+                </div>
 
-      {/* 1) How it works */}
+                <div className="flex gap-3">
+                  <Link
+                    href="/charters"
+                    className="rounded-2xl border border-white/70 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
+                  >
+                    Back to Charters
+                  </Link>
+                  <Link
+                    href="/availability?charter=shuttle"
+                    className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+                  >
+                    Check Availability
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works (unchanged copy, but now sits under hero like other pages) */}
       <section className="mt-10 rounded-3xl border bg-white p-7">
         <h2 className="text-xl font-extrabold text-slate-900">How it works</h2>
 
@@ -83,7 +146,8 @@ export default async function RestaurantShuttlePage() {
               className="font-bold underline"
             >
               Pace Shuttles
-            </a>.
+            </a>
+            .
           </p>
 
           <p>
@@ -118,12 +182,37 @@ export default async function RestaurantShuttlePage() {
         </div>
       </section>
 
-      {/* 2) Pace Shuttles tiles (title rendered inside component) */}
+      {/* Routes section (keep API tile component exactly as-is) */}
       <section className="mt-8">
-        <PaceShuttleTiles />
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-extrabold text-slate-900">
+              Available shuttle routes in {country}
+            </h2>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <PaceShuttleTiles />
+        </div>
       </section>
 
-      {/* 3) Good to know */}
+      {/* YouTube (full width like the other charter pages) */}
+      {embed && (
+        <section className="mt-10 overflow-hidden rounded-3xl border bg-black">
+          <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+            <iframe
+              className="absolute inset-0 h-full w-full"
+              src={embed}
+              title="Restaurant Shuttle video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </section>
+      )}
+
+      {/* Good to know (unchanged) */}
       <section className="mt-10 rounded-3xl border bg-white p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
@@ -153,10 +242,10 @@ export default async function RestaurantShuttlePage() {
               >
                 Pace Shuttles
               </a>{" "}
-              network, you will not necessarily receive your ride from Antigua Boats.
-              Vessels from all participating operators are available to the{" "}
-              <span className="font-semibold">{vehicleType}</span> selection process,
-              and are allocated 24 hours prior to the journey taking place.
+              network, you will not necessarily receive your ride from Antigua Boats. Vessels from
+              all participating operators are available to the{" "}
+              <span className="font-semibold">{vehicleType}</span> selection process, and are
+              allocated 24 hours prior to the journey taking place.
             </p>
           </div>
 
