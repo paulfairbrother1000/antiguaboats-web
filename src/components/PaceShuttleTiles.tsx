@@ -32,6 +32,77 @@ type ShuttleRoutesResponse = {
   body?: string;
 };
 
+function pickLowestPrice(t: any): number | undefined {
+  // 1) common direct fields
+  const direct =
+    t.lowest_price ??
+    t.lowestPrice ??
+    t.from_price ??
+    t.fromPrice ??
+    t.min_price ??
+    t.minPrice ??
+    t.lowest_available_price ??
+    t.lowestAvailablePrice;
+
+  if (typeof direct === "number") return direct;
+
+  // 2) common nested shapes: prices/fare options arrays
+  // e.g. prices: [{ amount: 120, currency: "USD" }, ...]
+  const arrCandidates = [
+    t.prices,
+    t.fares,
+    t.price_options,
+    t.priceOptions,
+    t.lowest_prices,
+    t.lowestPrices,
+  ].filter(Array.isArray);
+
+  for (const arr of arrCandidates) {
+    const nums = (arr as any[])
+      .map((x) => x?.amount ?? x?.price ?? x?.value ?? x?.cents)
+      .filter((v) => typeof v === "number")
+      .map((v) => (v > 10000 ? v / 100 : v)); // handle cents if present
+    if (nums.length) return Math.min(...nums);
+  }
+
+  // 3) common nested object: pricing: { lowest: 120 } etc.
+  const nested =
+    t.pricing?.lowest ??
+    t.pricing?.from ??
+    t.pricing?.min ??
+    t.pricing?.lowest_price ??
+    t.pricing?.lowestPrice;
+
+  if (typeof nested === "number") return nested;
+
+  return undefined;
+}
+
+function pickCurrencyCode(t: any): string | undefined {
+  const c =
+    t.currency ??
+    t.ccy ??
+    t.iso_currency ??
+    t.isoCurrency ??
+    t.pricing?.currency ??
+    t.pricing?.ccy;
+
+  return typeof c === "string" ? c : undefined;
+}
+
+function formatFromPrice(currency: string | undefined, amount: number) {
+  const ccy = currency || "USD";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: ccy,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${ccy} ${Math.round(amount)}`;
+  }
+}
+
 function Skeleton() {
   return (
     <div className="rounded-3xl border bg-white p-6">
@@ -62,40 +133,6 @@ function pickSeats(t: ShuttleTile): number | undefined {
     anyT.liveSeats;
 
   return typeof v === "number" ? v : undefined;
-}
-
-function pickPrice(t: ShuttleTile): number | undefined {
-  const anyT = t as any;
-  const v =
-    anyT.lowest_price ??
-    anyT.lowestPrice ??
-    anyT.from_price ??
-    anyT.fromPrice ??
-    anyT.min_price ??
-    anyT.minPrice;
-
-  return typeof v === "number" ? v : undefined;
-}
-
-function pickCurrency(t: ShuttleTile): string | undefined {
-  const anyT = t as any;
-  const v = anyT.currency ?? anyT.ccy ?? anyT.iso_currency ?? anyT.isoCurrency;
-  return typeof v === "string" ? v : undefined;
-}
-
-function formatMoney(currency: string | undefined, amount: number) {
-  // Keep it robust if currency is missing/odd.
-  const ccy = currency || "USD";
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: ccy,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    // Fallback
-    return `${ccy} ${Math.round(amount)}`;
-  }
 }
 
 export default function PaceShuttleTiles() {
@@ -149,9 +186,7 @@ export default function PaceShuttleTiles() {
   if (error) {
     return (
       <div className="rounded-3xl border bg-white p-6">
-        <div className="text-sm font-semibold text-slate-900">
-          Shuttle routes are not available yet.
-        </div>
+        <div className="text-sm font-semibold text-slate-900">Shuttle routes are not available yet.</div>
         <div className="mt-2 text-sm text-slate-600">{error}</div>
         <div className="mt-4 text-sm text-slate-500">
           (Server proxy is{" "}
@@ -164,9 +199,7 @@ export default function PaceShuttleTiles() {
   if (!tiles.length) {
     return (
       <div className="rounded-3xl border bg-white p-6">
-        <div className="text-sm font-semibold text-slate-900">
-          No shuttle routes available right now.
-        </div>
+        <div className="text-sm font-semibold text-slate-900">No shuttle routes available right now.</div>
         <div className="mt-2 text-sm text-slate-600">Please check back soon.</div>
       </div>
     );
@@ -176,11 +209,21 @@ export default function PaceShuttleTiles() {
     <div className="grid gap-4 sm:grid-cols-2">
       {tiles.map((t) => {
         const seats = pickSeats(t);
-        const price = pickPrice(t);
-        const currency = pickCurrency(t);
+
+        // "From $xx" (lowest available price per route)
+        const anyT = t as any;
+        const lowest = pickLowestPrice(anyT);
+        const ccy = pickCurrencyCode(anyT);
 
         return (
-          <div key={t.route_id} className="overflow-hidden rounded-3xl border bg-white">
+          <div key={t.route_id} className="relative overflow-hidden rounded-3xl border bg-white">
+            {/* Price badge */}
+            {typeof lowest === "number" && (
+              <div className="absolute right-3 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-extrabold text-slate-900 shadow">
+                From {formatFromPrice(ccy, lowest)}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-0">
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -229,18 +272,11 @@ export default function PaceShuttleTiles() {
               <div className="mt-1 text-lg font-extrabold text-slate-900">{t.route_name}</div>
 
               {/* Live meta (only show if present) */}
-              {(typeof seats === "number" || typeof price === "number") && (
+              {typeof seats === "number" && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
-                  {typeof seats === "number" && (
-                    <div>
-                      <span className="font-semibold">{seats}</span> seats
-                    </div>
-                  )}
-                  {typeof price === "number" && (
-                    <div>
-                      from <span className="font-semibold">{formatMoney(currency, price)}</span>
-                    </div>
-                  )}
+                  <div>
+                    <span className="font-semibold">{seats}</span> seats
+                  </div>
                 </div>
               )}
 
