@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  * - Server-side only
  * - Hides operator key
  * - Avoids CSP / CORS issues
- * - Reusable by any operator site
+ * - Normalises Pace image URLs to the working Supabase host
  */
 
 function must(name: string): string {
@@ -18,6 +18,41 @@ function must(name: string): string {
     throw new Error(`Missing required env var: ${name}`);
   }
   return v;
+}
+
+/**
+ * Pace images are currently referenced from two Supabase project hosts.
+ * We have confirmed by direct test that ONLY this host serves the images:
+ */
+const WORKING_SUPABASE_HOST = "bopvaaexicvdueidyvjd.supabase.co";
+
+function normaliseSupabaseUrl(raw?: string): string | undefined {
+  if (!raw) return undefined;
+
+  try {
+    const u = new URL(raw);
+
+    // Only rewrite Supabase URLs
+    if (u.hostname.toLowerCase().endsWith(".supabase.co")) {
+      u.hostname = WORKING_SUPABASE_HOST;
+      u.protocol = "https:";
+    }
+
+    return u.toString();
+  } catch {
+    // If it's not a valid URL, return as-is
+    return raw;
+  }
+}
+
+function normaliseTileImages(tile: any) {
+  if (tile?.pickup?.image_url) {
+    tile.pickup.image_url = normaliseSupabaseUrl(tile.pickup.image_url);
+  }
+  if (tile?.destination?.image_url) {
+    tile.destination.image_url = normaliseSupabaseUrl(tile.destination.image_url);
+  }
+  return tile;
 }
 
 export async function GET() {
@@ -32,7 +67,7 @@ export async function GET() {
       method: "GET",
       headers: {
         "x-operator-key": OPERATOR_KEY,
-        "accept": "application/json",
+        accept: "application/json",
       },
       // absolutely no caching for price-sensitive data
       cache: "no-store",
@@ -51,6 +86,11 @@ export async function GET() {
     }
 
     const data = await res.json();
+
+    // Normalise images so all tiles reference the working Supabase host
+    if (Array.isArray(data?.tiles)) {
+      data.tiles = data.tiles.map(normaliseTileImages);
+    }
 
     return NextResponse.json({
       source: "pace-shuttles",
