@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 export default function GalleryCarousel({
   images,
   className = "",
+  heightClass = "h-[520px]",
   caption = "Silver Lady • Nor-Tech Performance",
   ctaHref = "/availability?charter=day",
   ctaLabel = "Book Silver Lady",
 }: {
   images: { url: string; alt?: string }[];
   className?: string;
+  heightClass?: string;
   caption?: string;
   ctaHref?: string;
   ctaLabel?: string;
@@ -32,33 +34,27 @@ export default function GalleryCarousel({
         <img
           src={current.url}
           alt={current.alt ?? `Image ${idx + 1}`}
-          className="h-[360px] w-full object-cover sm:h-[460px] lg:h-[520px]"
+          className={`${heightClass} w-full object-cover`}
         />
 
-        {/* Gradient overlay */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+        {/* ✅ subtle gradient overlay */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+
+        {/* ✅ caption */}
+        <div className="pointer-events-none absolute bottom-4 left-4 text-white">
+          <div className="text-sm font-semibold tracking-wide">{caption}</div>
         </div>
 
-        {/* Caption */}
-        <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
-          <div className="text-white">
-            <div className="text-sm font-semibold tracking-wide">{caption}</div>
-            <div className="mt-1 text-xs text-white/85">
-              Swipe or use arrows to browse photos
-            </div>
-          </div>
-
-          {/* CTA button */}
+        {/* ✅ Book button */}
+        <div className="absolute top-4 right-4">
           <Link
             href={ctaHref}
-            className="pointer-events-auto inline-flex items-center justify-center rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-sky-700"
+            className="inline-flex items-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-sky-700"
           >
             {ctaLabel}
           </Link>
         </div>
 
-        {/* Arrows */}
         {safeImages.length > 1 && (
           <>
             <button
@@ -79,7 +75,6 @@ export default function GalleryCarousel({
         )}
       </div>
 
-      {/* Dots */}
       {safeImages.length > 1 && (
         <div className="mt-3 flex items-center justify-center gap-2">
           {safeImages.map((_, i) => (
