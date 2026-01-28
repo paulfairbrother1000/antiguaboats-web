@@ -176,25 +176,15 @@ export default async function RestaurantShuttlePage() {
             >
               Pace Shuttles
             </a>{" "}
-            portal which identifies and manages the appropriate operators, seat allocation,
-            pricing and payment.
+            portal which identifies and manages the appropriate operators, seat allocation, pricing
+            and payment.
           </p>
         </div>
       </section>
 
       {/* Routes section (keep API tile component exactly as-is) */}
       <section className="mt-8">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-900">
-              Available shuttle routes in {country}
-            </h2>
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <PaceShuttleTiles />
-        </div>
+        <PaceShuttleTiles />
       </section>
 
       {/* YouTube (full width like the other charter pages) */}
@@ -250,11 +240,7 @@ export default async function RestaurantShuttlePage() {
           </div>
 
           <div className="shrink-0">
-            <a
-              href="https://www.paceshuttles.com"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="https://www.paceshuttles.com" target="_blank" rel="noopener noreferrer">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/paceshuttles-logo.jpeg"
