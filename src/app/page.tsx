@@ -2,17 +2,6 @@ import Link from "next/link";
 import GalleryCarousel from "@/components/GalleryCarousel";
 import ShuttleRouteTiles from "@/components/ShuttleRouteTiles";
 
-export default function HomePage() {
-  return (
-    <>
-      {/* your existing hero etc */}
-      <ShuttleRouteTiles />
-      {/* rest of page */}
-    </>
-  );
-}
-
-
 type CharterTile = {
   title: string;
   desc: string;
@@ -126,7 +115,14 @@ export default function Home() {
         </div>
       </section>
 
-            {/* =========================
+      {/* =========================
+          PACE SHUTTLES: ROUTE TILES (API PULL)
+      ========================== */}
+      <section className="mx-auto max-w-6xl px-4 pb-14">
+        <ShuttleRouteTiles />
+      </section>
+
+      {/* =========================
           MIDDLE THIRD: BOAT SECTION (FULL WIDTH HERO IMAGE)
       ========================== */}
       <section className="mx-auto max-w-6xl px-4 pb-14">
@@ -236,7 +232,10 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-sky-700">
-                    Book now <span className="transition group-hover:translate-x-0.5">→</span>
+                    Book now{" "}
+                    <span className="transition group-hover:translate-x-0.5">
+                      →
+                    </span>
                   </div>
                 </div>
               </Link>
