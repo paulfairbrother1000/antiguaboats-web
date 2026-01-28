@@ -1,5 +1,17 @@
 import Link from "next/link";
 import GalleryCarousel from "@/components/GalleryCarousel";
+import ShuttleRouteTiles from "@/components/ShuttleRouteTiles";
+
+export default function HomePage() {
+  return (
+    <>
+      {/* your existing hero etc */}
+      <ShuttleRouteTiles />
+      {/* rest of page */}
+    </>
+  );
+}
+
 
 type CharterTile = {
   title: string;
