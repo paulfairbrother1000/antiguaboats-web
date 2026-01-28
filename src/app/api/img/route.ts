@@ -35,75 +35,89 @@ function svgPlaceholder(label: string) {
   });
 }
 
+function must(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing required env var: ${name}`);
+  return v;
+}
+
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const raw = searchParams.get("url");
-  if (!raw) return svgPlaceholder("Missing image URL");
-
-  let url: URL;
   try {
-    url = new URL(raw.trim());
-  } catch {
-    return svgPlaceholder("Invalid image URL");
-  }
+    const { searchParams } = new URL(req.url);
+    const raw = searchParams.get("url");
+    if (!raw) return svgPlaceholder("Missing image URL");
 
-  // Force https
-  if (url.protocol !== "https:") {
-    url = new URL(url.toString().replace(/^http:/i, "https:"));
-  }
-
-  if (!isAllowed(url)) {
-    return svgPlaceholder("Host not allowed");
-  }
-
-  // Timeout (avoid long-hanging requests)
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const upstream = await fetch(url.toString(), {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        accept: "image/*",
-        "user-agent": "AntiguaBoats/1.0 (+https://www.antigua-boats.com)",
-        referer: "https://www.antigua-boats.com/",
-      },
-      cache: "force-cache",
-    });
-
-    const contentType = upstream.headers.get("content-type") || "";
-
-    // If upstream isn't OK, return a placeholder image (not JSON)
-    if (!upstream.ok) {
-      const res = svgPlaceholder("Image unavailable");
-      res.headers.set("x-upstream-status", String(upstream.status));
-      res.headers.set("x-upstream-content-type", contentType || "unknown");
-      return res;
+    let url: URL;
+    try {
+      url = new URL(raw.trim());
+    } catch {
+      return svgPlaceholder("Invalid image URL");
     }
 
-    // If upstream returns non-image content, return placeholder
-    if (!contentType.toLowerCase().startsWith("image/")) {
-      const res = svgPlaceholder("Image unavailable");
-      res.headers.set("x-upstream-status", String(upstream.status));
-      res.headers.set("x-upstream-content-type", contentType || "unknown");
-      return res;
+    // Force https
+    if (url.protocol !== "https:") {
+      url = new URL(url.toString().replace(/^http:/i, "https:"));
     }
 
-    const bytes = await upstream.arrayBuffer();
+    if (!isAllowed(url)) {
+      return svgPlaceholder("Host not allowed");
+    }
 
-    return new NextResponse(bytes, {
-      headers: {
-        "content-type": contentType || "image/jpeg",
-        "cache-control": "public, max-age=86400, s-maxage=86400",
-      },
-    });
+    // Use Pace Shuttles Supabase anon key to fetch reliably from Storage.
+    // This keeps behavior consistent with the Pace Shuttles app.
+    const anon = must("PACE_SUPABASE_ANON_KEY");
+
+    // Timeout (avoid hanging requests)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const upstream = await fetch(url.toString(), {
+        signal: controller.signal,
+        redirect: "follow",
+        headers: {
+          accept: "image/*",
+          // Supabase Storage commonly behaves better when apikey/auth are present,
+          // even for public buckets (depending on configuration / policies).
+          apikey: anon,
+          authorization: `Bearer ${anon}`,
+          "user-agent": "AntiguaBoats/1.0 (+https://www.antigua-boats.com)",
+          referer: "https://www.antigua-boats.com/",
+        },
+        cache: "force-cache",
+      });
+
+      const contentType = upstream.headers.get("content-type") || "";
+
+      if (!upstream.ok) {
+        const res = svgPlaceholder("Image unavailable");
+        res.headers.set("x-upstream-status", String(upstream.status));
+        res.headers.set("x-upstream-content-type", contentType || "unknown");
+        return res;
+      }
+
+      if (!contentType.toLowerCase().startsWith("image/")) {
+        const res = svgPlaceholder("Image unavailable");
+        res.headers.set("x-upstream-status", String(upstream.status));
+        res.headers.set("x-upstream-content-type", contentType || "unknown");
+        return res;
+      }
+
+      const bytes = await upstream.arrayBuffer();
+
+      return new NextResponse(bytes, {
+        headers: {
+          "content-type": contentType || "image/jpeg",
+          "cache-control": "public, max-age=86400, s-maxage=86400",
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch (err: any) {
     const label = err?.name === "AbortError" ? "Image timed out" : "Image unavailable";
     const res = svgPlaceholder(label);
     res.headers.set("x-proxy-error", err?.message ?? "unknown");
     return res;
-  } finally {
-    clearTimeout(timeout);
   }
 }
