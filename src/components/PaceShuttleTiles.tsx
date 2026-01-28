@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 type ShuttleTile = {
   route_id: string;
@@ -12,7 +11,6 @@ type ShuttleTile = {
   destination?: { id: string; name: string; image_url?: string };
   schedule?: string;
 
-  // Pace payload (current)
   cheapest?: {
     unit_minor?: number;
     currency?: string;
@@ -21,7 +19,7 @@ type ShuttleTile = {
     max_qty_at_price?: number;
   };
 
-  // Legacy/alternate fields (keep for safety)
+  // legacy/alternate fields (keep for safety)
   lowest_price?: number;
   currency?: string;
   available_seats?: number;
@@ -29,7 +27,6 @@ type ShuttleTile = {
   min_price?: number;
   from_price?: number;
 
-  // sometimes present in other builds
   pricing?: any;
   prices?: any[];
 };
@@ -62,19 +59,6 @@ function proxiedImageUrl(u?: string) {
   return u ? `/api/img?url=${encodeURIComponent(u)}` : "/placeholder.jpg";
 }
 
-function pickSeats(t: ShuttleTile): number | undefined {
-  const anyT = t as any;
-  const v =
-    anyT.available_seats ??
-    anyT.seats_available ??
-    anyT.availableSeats ??
-    anyT.seatsAvailable ??
-    anyT.live_seats ??
-    anyT.liveSeats;
-
-  return typeof v === "number" ? v : undefined;
-}
-
 function formatMoney(currency: string | undefined, amountMajor: number) {
   const ccy = currency || "GBP";
   try {
@@ -98,7 +82,6 @@ function pickCheapestFromPace(t: ShuttleTile): { major?: number; currency?: stri
   return {};
 }
 
-// fallback if cheapest isn’t present (keeps older builds working)
 function pickLowestPriceFallback(t: ShuttleTile): { major?: number; currency?: string } {
   const anyT = t as any;
   const direct =
@@ -126,7 +109,6 @@ function pickLowestPriceFallback(t: ShuttleTile): { major?: number; currency?: s
     return { major: direct, currency: typeof c === "string" ? c : "GBP" };
   }
 
-  // arrays (rare)
   const arr = [anyT.prices, anyT.fares, anyT.price_options, anyT.priceOptions].find(Array.isArray);
   if (Array.isArray(arr)) {
     const nums = arr
@@ -190,8 +172,7 @@ export default function PaceShuttleTiles() {
         <div className="text-sm font-semibold text-slate-900">Shuttle routes are not available yet.</div>
         <div className="mt-2 text-sm text-slate-600">{error}</div>
         <div className="mt-4 text-sm text-slate-500">
-          (Server proxy is{" "}
-          <code className="rounded bg-slate-100 px-1 py-0.5">/api/shuttle-routes</code>.)
+          (Server proxy is <code className="rounded bg-slate-100 px-1 py-0.5">/api/shuttle-routes</code>.)
         </div>
       </div>
     );
@@ -209,14 +190,8 @@ export default function PaceShuttleTiles() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {tiles.map((t) => {
-        const seats = pickSeats(t);
-
-        // Prefer Pace "cheapest" (current API), fallback to older fields if needed
         const cheapest = pickCheapestFromPace(t);
         const fallback = pickLowestPriceFallback(t);
-
-        const hasPrice =
-          typeof cheapest.major === "number" || typeof fallback.major === "number";
 
         const priceMajor =
           typeof cheapest.major === "number" ? cheapest.major : fallback.major;
@@ -224,15 +199,11 @@ export default function PaceShuttleTiles() {
         const priceCurrency =
           typeof cheapest.major === "number" ? cheapest.currency : fallback.currency;
 
-        return (
-          <div key={t.route_id} className="relative overflow-hidden rounded-3xl border bg-white">
-            {/* Price pill (top-right of card) */}
-            {hasPrice && typeof priceMajor === "number" && (
-              <div className="absolute right-3 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-extrabold text-slate-900 shadow">
-                From {formatMoney(priceCurrency, priceMajor)}
-              </div>
-            )}
+        const hasPrice = typeof priceMajor === "number";
 
+        return (
+          <div key={t.route_id} className="overflow-hidden rounded-3xl border bg-white">
+            {/* Images */}
             <div className="grid grid-cols-2 gap-0">
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -275,17 +246,24 @@ export default function PaceShuttleTiles() {
               </div>
             </div>
 
-            <div className="p-5">
-              <div className="text-sm font-semibold text-slate-500">{t.vehicle_type ?? "Shuttle"}</div>
+            {/* Price under images (right aligned) */}
+            <div className="flex items-center justify-end px-4 pt-2">
+              {hasPrice ? (
+                <div className="text-sm font-extrabold text-slate-900">
+                  From {formatMoney(priceCurrency, priceMajor as number)}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500"> </div>
+              )}
+            </div>
+
+            {/* Content (tighter spacing) */}
+            <div className="px-4 pb-4 pt-2">
+              <div className="text-sm font-semibold text-slate-500">
+                Return trip by {t.vehicle_type ?? "Shuttle"}
+              </div>
 
               <div className="mt-1 text-lg font-extrabold text-slate-900">{t.route_name}</div>
-
-              {/* Live meta (only show if present) */}
-              {typeof seats === "number" && (
-                <div className="mt-2 text-sm text-slate-700">
-                  <span className="font-semibold">{seats}</span> seats
-                </div>
-              )}
 
               {t.schedule ? (
                 <div className="mt-2 text-sm text-slate-600 whitespace-pre-line">{t.schedule}</div>
@@ -293,14 +271,7 @@ export default function PaceShuttleTiles() {
                 <div className="mt-2 text-sm text-slate-600">Live availability and pricing</div>
               )}
 
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <Link
-                  href={`/availability?charter=shuttle&route_id=${encodeURIComponent(t.route_id)}`}
-                  className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-                >
-                  View availability
-                </Link>
-
+              <div className="mt-3 flex items-center justify-end">
                 <div className="text-xs text-slate-500">
                   Updated: {data?.fetched_at ? new Date(data.fetched_at).toLocaleString() : "—"}
                 </div>
