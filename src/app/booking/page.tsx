@@ -36,7 +36,7 @@ export default function BookingPage() {
   const [guests, setGuests] = useState<number>(6);
   const [nobu, setNobu] = useState<boolean>(false);
 
-  // Calendar month state (Monday start enforced via weekStartsOn=1)
+  // Calendar month state (Monday start)
   const [month, setMonth] = useState<Date>(new Date());
 
   const [availability, setAvailability] = useState<DayAvail[]>([]);
@@ -69,31 +69,43 @@ export default function BookingPage() {
     return m;
   }, [availability]);
 
-  // Determine which days are selectable given current charter selection (charter-first flow)
-  const disabledDays = useMemo(() => {
-    if (!selectedSlot) {
-      // Only disable fully sold-out days (still allow clicking days where some slots exist)
-      return (date: Date) => {
-        const key = isoDate(date);
-        const day = availByDate.get(key);
-        return day ? day.sold_out : false;
-      };
-    }
-    // If slot selected, disable days where that slot isn’t available
-    return (date: Date) => {
-      const key = isoDate(date);
-      const day = availByDate.get(key);
-      if (!day) return false;
-      return !day.available.includes(selectedSlot);
-    };
-  }, [availByDate, selectedSlot]);
+  const selectedDayAvail = useMemo(() => {
+    if (!selectedDate) return null;
+    return availByDate.get(isoDate(selectedDate)) ?? null;
+  }, [selectedDate, availByDate]);
 
-  // When date changes, if current selectedSlot is not available, clear it (date-first flow)
+  // Calendar colouring rules
+  const isUnavailable = (date: Date) => {
+    const day = availByDate.get(isoDate(date));
+    return day ? day.available.length === 0 : false;
+  };
+
+  const isFullyAvailable = (date: Date) => {
+    const day = availByDate.get(isoDate(date));
+    // Fully available means all 4 options are available
+    return day ? day.available.length === 4 : false;
+  };
+
+  const isPartlyAvailable = (date: Date) => {
+    const day = availByDate.get(isoDate(date));
+    return day ? day.available.length > 0 && day.available.length < 4 : false;
+  };
+
+  // Disable clicking sold-out days (black)
+  const disabledDays = useMemo(() => {
+    return (date: Date) => {
+      const day = availByDate.get(isoDate(date));
+      return day ? day.available.length === 0 : false;
+    };
+  }, [availByDate]);
+
+  // When date changes, if slot no longer valid, clear it
   useEffect(() => {
     if (!selectedDate) return;
-    const key = isoDate(selectedDate);
-    const day = availByDate.get(key);
+
+    const day = availByDate.get(isoDate(selectedDate));
     if (!day) return;
+
     if (selectedSlot && !day.available.includes(selectedSlot)) {
       setSelectedSlot(undefined);
       setNobu(false);
@@ -122,11 +134,6 @@ export default function BookingPage() {
       .then((data) => setQuote(data?.total_amount_cents ? data : null))
       .finally(() => setLoadingQuote(false));
   }, [selectedSlot, guests, nobu]);
-
-  const selectedDayAvail = useMemo(() => {
-    if (!selectedDate) return null;
-    return availByDate.get(isoDate(selectedDate)) ?? null;
-  }, [selectedDate, availByDate]);
 
   const canContinue =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
@@ -162,17 +169,18 @@ export default function BookingPage() {
 
         {step === 1 && (
           <div className="grid gap-6 lg:grid-cols-3">
-            {/* Calendar */}
+            {/* Calendar + Step 1 */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
               <div className="mb-3 flex items-end justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold">Step 1 — select charter type and date</h2>
-                  <p className="text-sm text-slate-600">Days show what’s available: FD / AM / PM / SS.</p>
+                  <p className="text-sm text-slate-600">
+                    Black = unavailable • Grey = partly available • White = available
+                  </p>
                 </div>
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-              {/* Keep DayPicker's own layout intact; only customise DayButton (inside each cell). */}
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
                 <DayPicker
                   mode="single"
@@ -180,109 +188,91 @@ export default function BookingPage() {
                   onSelect={setSelectedDate}
                   month={month}
                   onMonthChange={setMonth}
-                  weekStartsOn={1} // Monday
+                  weekStartsOn={1}
                   disabled={disabledDays}
                   showOutsideDays
                   className="w-full"
-                  components={{
-                    DayButton: (props: any) => {
-                      const dateObj: Date | undefined = props?.day?.date;
-                      const modifiers: Record<string, boolean> | undefined = props?.modifiers;
+                  modifiers={{
+                    unavailable: isUnavailable,
+                    partial: isPartlyAvailable,
+                    available: isFullyAvailable,
+                  }}
+                  classNames={{
+                    // make grid feel “app-like”
+                    months: "w-full",
+                    month: "w-full",
+                    caption: "flex items-center justify-between px-2",
+                    caption_label: "text-base font-semibold text-slate-900",
+                    nav: "flex items-center gap-2",
+                    nav_button:
+                      "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+                    head_row: "flex w-full",
+                    head_cell: "w-10 text-center text-xs font-semibold text-slate-500",
+                    row: "mt-2 flex w-full",
+                    cell: "w-10 h-10 p-0 text-center",
+                    day: "w-10 h-10 rounded-xl border border-slate-200 text-sm font-semibold transition",
+                    day_selected: "bg-slate-900 text-white border-slate-900",
+                    day_today: "ring-2 ring-slate-300",
+                    day_outside: "text-slate-300",
+                    day_disabled: "opacity-60",
 
-                      if (!dateObj) return <button {...props} />;
-
-                      const dayKey = isoDate(dateObj);
-                      const day = availByDate.get(dayKey);
-                      const chips: Slot[] = day?.available ?? [];
-
-                      const isSelected = Boolean(modifiers?.selected);
-                      const isDisabled = Boolean(modifiers?.disabled);
-                      const isOutside = Boolean(modifiers?.outside);
-
-                      return (
-                        <button
-                          {...props}
-                          type="button"
-                          className={[
-                            // preserve any className the library passes
-                            props.className ?? "",
-                            // our look
-                            "w-full rounded-xl p-2 text-left transition",
-                            isSelected ? "bg-slate-900 text-white" : "hover:bg-slate-50",
-                            isDisabled ? "opacity-40 hover:bg-transparent" : "",
-                            isOutside ? "text-slate-400" : "",
-                          ].join(" ")}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="text-sm font-semibold">{dateObj.getDate()}</div>
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {(Object.keys(SLOT_SHORT) as Slot[]).map((slot) => {
-                              const available = chips.includes(slot);
-                              return (
-                                <span
-                                  key={slot}
-                                  className={[
-                                    "rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                                    available
-                                      ? isSelected
-                                        ? "bg-white/90 text-slate-900"
-                                        : "bg-slate-900 text-white"
-                                      : "bg-slate-100 text-slate-400",
-                                  ].join(" ")}
-                                >
-                                  {SLOT_SHORT[slot]}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </button>
-                      );
-                    },
+                    // our availability colouring (no tokens)
+                    day_unavailable: "bg-slate-900 text-white border-slate-900",
+                    day_partial: "bg-slate-200 text-slate-900 border-slate-200",
+                    day_available: "bg-white text-slate-900 border-slate-200",
                   }}
                 />
               </div>
 
-              {/* Charter chooser */}
+              {/* Charter chooser (only after date selected) */}
               <div className="mt-6">
                 <h3 className="mb-2 text-base font-semibold">Charter type</h3>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
-                    const dayAvail = selectedDayAvail?.available ?? null;
-                    const enabled = !dayAvail || dayAvail.includes(slot);
-                    const selected = selectedSlot === slot;
+                {!selectedDate && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    Select a date on the calendar to see what’s available.
+                  </div>
+                )}
 
-                    return (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSlot(slot);
-                          if (slot !== "FD") setNobu(false);
-                        }}
-                        disabled={!enabled}
-                        className={[
-                          "rounded-2xl border p-4 text-left shadow-sm transition",
-                          selected ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white",
-                          enabled ? "hover:bg-slate-50" : "opacity-40",
-                        ].join(" ")}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="font-semibold">{SLOT_LABEL[slot]}</div>
-                          <div className="text-xs font-bold sm:hidden">{SLOT_SHORT[slot]}</div>
-                        </div>
-                        <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
-                          {slot === "FD" && "A full day adventure around Antigua"}
-                          {slot === "AM" && "Morning slot"}
-                          {slot === "PM" && "Afternoon slot"}
-                          {slot === "SS" && "Golden hour cruise"}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {selectedDate && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
+                      const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
+                      const selected = selectedSlot === slot;
+
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => {
+                            if (!enabled) return;
+                            setSelectedSlot(slot);
+                            if (slot !== "FD") setNobu(false);
+                          }}
+                          disabled={!enabled}
+                          className={[
+                            "rounded-2xl border p-4 text-left shadow-sm transition",
+                            selected
+                              ? "border-slate-900 bg-slate-900 text-white"
+                              : "border-slate-200 bg-white",
+                            enabled ? "hover:bg-slate-50" : "opacity-40",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="font-semibold">{SLOT_LABEL[slot]}</div>
+                            <div className="text-xs font-bold sm:hidden">{SLOT_SHORT[slot]}</div>
+                          </div>
+                          <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
+                            {slot === "FD" && "A full day adventure around Antigua"}
+                            {slot === "AM" && "Morning slot"}
+                            {slot === "PM" && "Afternoon slot"}
+                            {slot === "SS" && "Golden hour cruise"}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Guests + Nobu */}
@@ -429,7 +419,9 @@ export default function BookingPage() {
         {step === 3 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
-            <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
+            <p className="mt-2 text-slate-600">
+              Next we’ll collect lead passenger details and take payment (Stripe).
+            </p>
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
