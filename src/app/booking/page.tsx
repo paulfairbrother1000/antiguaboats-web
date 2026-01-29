@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 
 type Slot = "FD" | "AM" | "PM" | "SS";
 
@@ -12,40 +14,21 @@ const SLOT_LABEL: Record<Slot, string> = {
   SS: "Sunset Cruise",
 };
 
-const SLOT_SHORT: Record<Slot, string> = { FD: "FD", AM: "AM", PM: "PM", SS: "SS" };
+// Base display prices (matches your current stub pricing)
+const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
+  FD: 220000,
+  AM: 110000,
+  PM: 120000,
+  SS: 80000,
+};
+
+function formatUsd(cents: number) {
+  const dollars = cents / 100;
+  return dollars.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
 
 function isoDate(d: Date) {
-  // Use noon local time for stable YYYY-MM-DD keys across timezones
-  const localNoon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-  return localNoon.toISOString().slice(0, 10);
-}
-
-function makeDate(y: number, m: number, day: number) {
-  // noon local time avoids DST/timezone edge cases when using toISOString
-  return new Date(y, m, day, 12, 0, 0);
-}
-
-function startOfMonth(d: Date) {
-  return makeDate(d.getFullYear(), d.getMonth(), 1);
-}
-
-function endOfMonth(d: Date) {
-  return makeDate(d.getFullYear(), d.getMonth() + 1, 0);
-}
-
-// Monday-first: Mon=0 ... Sun=6
-function weekdayIndexMonFirst(d: Date) {
-  const js = d.getDay(); // Sun=0 ... Sat=6
-  return (js + 6) % 7; // Mon=0 ... Sun=6
-}
-
-function addDays(d: Date, n: number) {
-  return makeDate(d.getFullYear(), d.getMonth(), d.getDate() + n);
-}
-
-function sameDay(a?: Date, b?: Date) {
-  if (!a || !b) return false;
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return d.toISOString().slice(0, 10);
 }
 
 type DayAvail = {
@@ -54,8 +37,6 @@ type DayAvail = {
   available: Slot[];
   sold_out: boolean;
 };
-
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -69,8 +50,8 @@ export default function BookingPage() {
   // Step 2 state
   const [comments, setComments] = useState<string>("");
 
-  // Month state (display month)
-  const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
+  // Calendar month state (Monday start)
+  const [month, setMonth] = useState<Date>(new Date());
 
   const [availability, setAvailability] = useState<DayAvail[]>([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
@@ -84,9 +65,8 @@ export default function BookingPage() {
 
   // Fetch availability for visible month
   useEffect(() => {
-    const m = startOfMonth(month);
-    const from = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1));
-    const to = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0));
+    const from = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0));
     const fromStr = isoDate(from);
     const toStr = isoDate(to);
 
@@ -117,6 +97,15 @@ export default function BookingPage() {
     if (count === 4) return "available";
     return "partial";
   };
+
+  // Unavailable days are unclickable (disabled)
+  const disabledDays = useMemo(() => {
+    return (date: Date) => {
+      const day = availByDate.get(isoDate(date));
+      if (!day) return false;
+      return (day.available?.length ?? 0) === 0;
+    };
+  }, [availByDate]);
 
   // When date changes, if slot no longer valid, clear it
   useEffect(() => {
@@ -164,38 +153,15 @@ export default function BookingPage() {
     return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
-  // Build calendar grid (always 7 columns, Monday-first, includes outside days)
-  const calendarDays = useMemo(() => {
-    const mStart = startOfMonth(month);
-    const mEnd = endOfMonth(month);
+  const summaryTitle = useMemo(() => {
+    if (!selectedSlot) return "—";
+    return SLOT_LABEL[selectedSlot];
+  }, [selectedSlot]);
 
-    const gridStart = addDays(mStart, -weekdayIndexMonFirst(mStart));
-    const gridEnd = addDays(mEnd, 6 - weekdayIndexMonFirst(mEnd));
-
-    const days: { date: Date; inMonth: boolean }[] = [];
-    for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) {
-      days.push({ date: d, inMonth: d.getMonth() === month.getMonth() });
-    }
-    return days;
-  }, [month]);
-
-  const monthLabel = useMemo(() => {
-    return month.toLocaleString("en-GB", { month: "long", year: "numeric" });
-  }, [month]);
-
-  const bookingPayload = useMemo(() => {
-    return {
-      date: selectedDate ? isoDate(selectedDate) : null,
-      slot: selectedSlot ?? null,
-      guests,
-      nobu: selectedSlot === "FD" ? nobu : false,
-      comments: comments.trim() || null,
-      quote: quote ?? null,
-    };
-  }, [selectedDate, selectedSlot, guests, nobu, comments, quote]);
-
-  const commentLimit = 500;
-  const commentCount = comments.length;
+  const summaryBasePrice = useMemo(() => {
+    if (!selectedSlot) return null;
+    return SLOT_BASE_PRICE_CENTS[selectedSlot];
+  }, [selectedSlot]);
 
   return (
     <main className="bg-white text-slate-900">
@@ -239,79 +205,46 @@ export default function BookingPage() {
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-                {/* Month header */}
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <div className="text-3xl font-semibold tracking-tight">{monthLabel}</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setMonth((m) => startOfMonth(makeDate(m.getFullYear(), m.getMonth() - 1, 1)))}
-                      className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
-                      aria-label="Previous month"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMonth((m) => startOfMonth(makeDate(m.getFullYear(), m.getMonth() + 1, 1)))}
-                      className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
-                      aria-label="Next month"
-                    >
-                      ›
-                    </button>
-                  </div>
-                </div>
-
-                {/* Weekday header */}
-                <div className="grid grid-cols-7 gap-2 px-1 pb-2">
-                  {WEEKDAYS.map((d) => (
-                    <div key={d} className="text-center text-xs font-semibold text-slate-500">
-                      {d}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Days grid */}
-                <div className="grid grid-cols-7 gap-2 px-1">
-                  {calendarDays.map(({ date, inMonth }) => {
-                    const cls = dayClass(date);
-                    const isUnavailable = cls === "unavailable";
-                    const isSelected = sameDay(date, selectedDate);
-                    const outside = !inMonth;
-
-                    const bg =
-                      cls === "unavailable"
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : cls === "partial"
-                          ? "bg-slate-400 text-white border-slate-400"
-                          : "bg-white text-slate-900 border-slate-200";
-
-                    const ring = isSelected ? "ring-2 ring-slate-900 ring-offset-2" : "";
-
-                    return (
-                      <button
-                        key={isoDate(date)}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => {
-                          if (isUnavailable) return;
-                          setSelectedDate(date);
-                        }}
-                        className={[
-                          "h-12 w-12 rounded-xl border text-sm font-semibold transition",
-                          bg,
-                          outside ? "opacity-70" : "",
-                          isUnavailable ? "cursor-not-allowed opacity-80" : "hover:opacity-95",
-                          ring,
-                        ].join(" ")}
-                        aria-label={isoDate(date)}
-                        title={isUnavailable ? "Unavailable" : "Select date"}
-                      >
-                        {date.getDate()}
-                      </button>
-                    );
-                  })}
-                </div>
+                <DayPicker
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  month={month}
+                  onMonthChange={setMonth}
+                  weekStartsOn={1}
+                  disabled={disabledDays}
+                  showOutsideDays
+                  className="w-full"
+                  modifiers={{
+                    unavailable: (date) => dayClass(date) === "unavailable",
+                    partial: (date) => dayClass(date) === "partial",
+                    available: (date) => dayClass(date) === "available",
+                  }}
+                  modifiersClassNames={{
+                    unavailable: "bg-slate-900 text-white border-slate-900",
+                    partial: "bg-slate-300 text-slate-900 border-slate-300",
+                    available: "bg-white text-slate-900 border-slate-200",
+                    selected: "bg-slate-900 text-white border-slate-900",
+                  }}
+                  classNames={{
+                    months: "w-full",
+                    month: "w-full",
+                    caption: "flex items-center justify-between px-2 py-2",
+                    caption_label: "text-base font-semibold text-slate-900",
+                    nav: "flex items-center gap-2",
+                    nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+                    table: "w-full table-fixed border-separate border-spacing-2",
+                    head_row: "",
+                    head_cell: "h-8 text-center text-xs font-semibold text-slate-500",
+                    row: "",
+                    cell: "p-0 text-center align-middle",
+                    day: "h-12 w-12 rounded-xl border text-sm font-semibold inline-flex items-center justify-center transition",
+                    day_selected: "bg-slate-900 text-white border-slate-900",
+                    day_today: "ring-2 ring-slate-300",
+                    day_outside: "text-slate-300",
+                    day_disabled: "opacity-70 cursor-not-allowed",
+                  }}
+                />
               </div>
 
               {/* Selected day availability summary */}
@@ -362,12 +295,24 @@ export default function BookingPage() {
                             enabled ? "hover:bg-slate-50" : "opacity-40 cursor-not-allowed",
                           ].join(" ")}
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="font-semibold">{SLOT_LABEL[slot]}</div>
-                            <div className="text-xs font-bold sm:hidden">{SLOT_SHORT[slot]}</div>
-                          </div>
-                          <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
-                            {enabled ? "Available on this date" : "Unavailable on this date"}
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="font-semibold">{SLOT_LABEL[slot]}</div>
+                              <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
+                                {enabled ? "Available on this date" : "Unavailable on this date"}
+                              </div>
+                            </div>
+
+                            {/* Price label (replaces the code) */}
+                            <div
+                              className={[
+                                "text-base font-semibold",
+                                selected ? "text-white/90" : "text-slate-900",
+                                !enabled ? "opacity-60" : "",
+                              ].join(" ")}
+                            >
+                              {formatUsd(SLOT_BASE_PRICE_CENTS[slot])}
+                            </div>
                           </div>
                         </button>
                       );
@@ -425,7 +370,7 @@ export default function BookingPage() {
 
             {/* Summary */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="text-base font-semibold">Cost</h3>
+              <h3 className="text-base font-semibold">Booking summary</h3>
 
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between gap-3">
@@ -434,7 +379,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
-                  <span className="font-semibold">{selectedSlot ? SLOT_SHORT[selectedSlot] : "—"}</span>
+                  <span className="font-semibold">{selectedSlot ? summaryTitle : "—"}</span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
@@ -444,20 +389,38 @@ export default function BookingPage() {
 
               <div className="my-4 border-t border-slate-200" />
 
+              {/* Price summary */}
+              {selectedSlot && summaryBasePrice !== null && (
+                <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-700">Base price</span>
+                    <span className="font-semibold">{formatUsd(summaryBasePrice)}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    Total updates based on guests (7–8: +$100 each) and options (Nobu +$250).
+                  </div>
+                </div>
+              )}
+
               {loadingQuote && <div className="text-sm text-slate-500">Calculating…</div>}
 
               {quote && (
                 <div className="space-y-2">
+                  <div className="text-sm font-semibold text-slate-900">
+                    Total for {guests} {guests === 1 ? "guest" : "guests"}
+                  </div>
+
                   {quote.breakdown.map((b, i) => (
                     <div key={i} className="flex justify-between gap-3 text-sm">
                       <span className="text-slate-700">{b.label}</span>
-                      <span className="font-semibold">${(b.amount_cents / 100).toFixed(0)}</span>
+                      <span className="font-semibold">{formatUsd(b.amount_cents)}</span>
                     </div>
                   ))}
+
                   <div className="my-3 border-t border-slate-200" />
                   <div className="flex justify-between gap-3">
                     <span className="text-base font-semibold">Total</span>
-                    <span className="text-base font-semibold">${(quote.total_amount_cents / 100).toFixed(0)}</span>
+                    <span className="text-base font-semibold">{formatUsd(quote.total_amount_cents)}</span>
                   </div>
                 </div>
               )}
@@ -478,19 +441,16 @@ export default function BookingPage() {
                 Continue
               </button>
 
-              {!!comments.trim() && (
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-                  <div className="text-xs font-semibold text-slate-600">Notes</div>
-                  <div className="mt-1 text-sm text-slate-800 line-clamp-5 whitespace-pre-wrap">
-                    {comments.trim()}
-                  </div>
-                </div>
-              )}
-
               <div className="mt-4 text-sm text-slate-600">
                 Need clarity?{" "}
                 <Link href="/contact" className="font-semibold underline underline-offset-2">
                   Contact us
+                </Link>
+              </div>
+
+              <div className="mt-2 text-sm text-slate-600">
+                <Link href="/terms" className="font-semibold underline underline-offset-2">
+                  Terms &amp; Conditions
                 </Link>
               </div>
             </div>
@@ -502,27 +462,22 @@ export default function BookingPage() {
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
               <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
               <p className="mt-2 text-slate-600">
-                Add any questions or useful context (occasion, timings, preferences, dietary needs, kids onboard, etc).
+                Add any questions or useful context (occasion, timings, preferences, allergies, celebrations, etc).
               </p>
 
-              <div className="mt-6">
-                <label className="text-sm font-semibold" htmlFor="booking-notes">
-                  Notes (optional)
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-semibold text-slate-900">
+                  Questions / comments (optional)
                 </label>
-                <div className="mt-2">
-                  <textarea
-                    id="booking-notes"
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value.slice(0, commentLimit))}
-                    placeholder="e.g. celebrating a birthday • prefer a calm bay • want to stop for snorkeling • arrive at 10:30…"
-                    className="min-h-[140px] w-full resize-y rounded-2xl border border-slate-200 p-4 text-sm outline-none focus:border-slate-400"
-                  />
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                    <span>These notes help the captain plan your day.</span>
-                    <span>
-                      {commentCount}/{commentLimit}
-                    </span>
-                  </div>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  rows={7}
+                  placeholder="Example: It’s a birthday. We’d love to stop for swimming, and arrive back by 5pm if possible…"
+                  className="w-full rounded-2xl border border-slate-200 p-4 text-sm outline-none focus:border-slate-400"
+                />
+                <div className="mt-2 text-xs text-slate-500">
+                  These notes will be saved with your booking and shared with the crew.
                 </div>
               </div>
 
@@ -544,8 +499,10 @@ export default function BookingPage() {
               </div>
             </div>
 
+            {/* Step 2 summary */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-base font-semibold">Booking summary</h3>
+
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Date</span>
@@ -553,25 +510,44 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
-                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
+                  <span className="font-semibold">{selectedSlot ? summaryTitle : "—"}</span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
                   <span className="font-semibold">{guests}</span>
                 </div>
-                {selectedSlot === "FD" && nobu && (
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-600">Nobu</span>
-                    <span className="font-semibold">Yes</span>
-                  </div>
-                )}
               </div>
 
               <div className="my-4 border-t border-slate-200" />
 
-              <div className="text-xs font-semibold text-slate-600">Notes</div>
-              <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">
-                {comments.trim() ? comments.trim() : <span className="text-slate-400">None</span>}
+              {quote ? (
+                <>
+                  <div className="text-sm font-semibold text-slate-900">
+                    Total for {guests} {guests === 1 ? "guest" : "guests"}
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {quote.breakdown.map((b, i) => (
+                      <div key={i} className="flex justify-between gap-3 text-sm">
+                        <span className="text-slate-700">{b.label}</span>
+                        <span className="font-semibold">{formatUsd(b.amount_cents)}</span>
+                      </div>
+                    ))}
+                    <div className="my-3 border-t border-slate-200" />
+                    <div className="flex justify-between gap-3">
+                      <span className="text-base font-semibold">Total</span>
+                      <span className="text-base font-semibold">{formatUsd(quote.total_amount_cents)}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-slate-500">Return to Step 1 to select a charter type.</div>
+              )}
+
+              <div className="mt-4 text-sm text-slate-600">
+                Need clarity?{" "}
+                <Link href="/contact" className="font-semibold underline underline-offset-2">
+                  Contact us
+                </Link>
               </div>
             </div>
           </div>
@@ -580,7 +556,16 @@ export default function BookingPage() {
         {step === 3 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
-            <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
+            <p className="mt-2 text-slate-600">
+              Next we’ll collect lead passenger details and take payment (Stripe).
+            </p>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+              <div className="font-semibold text-slate-900">Your notes</div>
+              <div className="mt-1 whitespace-pre-wrap text-slate-700">
+                {comments.trim().length ? comments : "—"}
+              </div>
+            </div>
 
             <div className="mt-6 flex gap-3">
               <button
@@ -593,16 +578,17 @@ export default function BookingPage() {
               <button
                 type="button"
                 className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
-                onClick={() => {
-                  // For now just prove the notes are wired into the "booking payload"
-                  // When you add Stripe, you’ll POST this to /api/checkout or /api/book
-                  // eslint-disable-next-line no-console
-                  console.log("BOOKING PAYLOAD", bookingPayload);
-                  alert("Mock payment — check console for booking payload (includes notes).");
-                }}
               >
                 Pay now (mock)
               </button>
+            </div>
+
+            <div className="mt-4 text-sm text-slate-600">
+              By continuing, you confirm you have read our{" "}
+              <Link href="/terms" className="font-semibold underline underline-offset-2">
+                Terms &amp; Conditions
+              </Link>
+              .
             </div>
           </div>
         )}
