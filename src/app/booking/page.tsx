@@ -141,13 +141,63 @@ export default function BookingPage() {
     return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
+  // ✅ Force a correct weekday header (7 columns) regardless of react-day-picker internal markup/version
+  const components = useMemo(() => {
+    return {
+      Head: () => (
+        <thead>
+          <tr>
+            {WEEKDAYS_MON_FIRST.map((d) => (
+              <th
+                key={d}
+                scope="col"
+                className="ab-head-cell text-center text-xs font-semibold text-slate-500"
+              >
+                {d}
+              </th>
+            ))}
+          </tr>
+        </thead>
+      ),
+    } as any;
+  }, []);
+
   return (
     <main className="bg-white text-slate-900">
-      {/* Make weekday header + day grid always line up by hiding DayPicker's head */}
+      {/* Scope the calendar layout fixes to this page only */}
       <style jsx global>{`
-        /* Target only our booking calendar instance */
-        .ab-rdp .rdp-head {
-          display: none !important;
+        /* Keep the grid consistent and stop weekday header collapsing into weird groups */
+        .ab-rdp .ab-head-cell {
+          height: 2rem;
+        }
+
+        /* Make spacing consistent between header + body */
+        .ab-rdp .rdp-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0.5rem;
+          table-layout: fixed;
+        }
+
+        /* Ensure header cells behave like cells (some versions apply odd display rules) */
+        .ab-rdp thead th {
+          width: 3rem;
+        }
+
+        /* Ensure body cells are fixed squares */
+        .ab-rdp .rdp-cell {
+          width: 3rem;
+          height: 3rem;
+          padding: 0;
+          text-align: center;
+          vertical-align: middle;
+        }
+
+        /* Make the day button fill the cell so colour fills the square */
+        .ab-rdp .rdp-day {
+          width: 3rem;
+          height: 3rem;
+          border-radius: 0.75rem;
         }
       `}</style>
 
@@ -193,19 +243,8 @@ export default function BookingPage() {
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-                {/* ✅ Our own weekday header (always aligned and spaced) */}
-                <div className="mb-2 grid grid-cols-7 gap-2 px-1">
-                  {WEEKDAYS_MON_FIRST.map((d) => (
-                    <div
-                      key={d}
-                      className="h-8 w-full text-center text-xs font-semibold leading-8 text-slate-500"
-                    >
-                      {d}
-                    </div>
-                  ))}
-                </div>
-
                 <DayPicker
+                  components={components}
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
@@ -222,26 +261,18 @@ export default function BookingPage() {
                   }}
                   modifiersClassNames={{
                     unavailable: "bg-slate-900 text-white border-slate-900",
-                    partial: "bg-slate-200 text-slate-900 border-slate-200",
+                    partial: "bg-slate-400 text-white border-slate-400",
                     available: "bg-white text-slate-900 border-slate-200",
                     selected: "bg-slate-900 text-white border-slate-900",
                   }}
                   classNames={{
                     months: "w-full",
                     month: "w-full",
-
                     caption: "flex items-center justify-between px-2",
                     caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
                     nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
-
-                    // Dates grid sizing
-                    table: "w-full table-fixed border-separate border-spacing-2",
-                    row: "",
-                    cell: "w-12 h-12 p-0 text-center align-middle",
-
-                    // Tile button fills cell (so shading looks solid)
-                    day: "w-12 h-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
+                    day: "rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
