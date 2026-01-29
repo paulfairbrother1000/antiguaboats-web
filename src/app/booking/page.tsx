@@ -172,48 +172,59 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-              <DayPicker
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                month={month}
-                onMonthChange={setMonth}
-                weekStartsOn={1} // Monday
-                disabled={disabledDays}
-                components={{
-                  Day: (props) => {
-                    const dateObj = (props as any).day?.date as Date | undefined;
-                    const modifiers = (props as any).modifiers as Record<string, boolean> | undefined;
+              {/* Keep DayPicker's own layout intact; only customise DayButton (inside each cell). */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+                <DayPicker
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  month={month}
+                  onMonthChange={setMonth}
+                  weekStartsOn={1} // Monday
+                  disabled={disabledDays}
+                  showOutsideDays
+                  className="w-full"
+                  components={{
+                    DayButton: (props: any) => {
+                      const dateObj: Date | undefined = props?.day?.date;
+                      const modifiers: Record<string, boolean> | undefined = props?.modifiers;
 
-                    if (!dateObj) return <div {...(props as any)} />;
+                      if (!dateObj) return <button {...props} />;
 
-                    const dayKey = isoDate(dateObj);
-                    const day = availByDate.get(dayKey);
-                    const chips = day?.available ?? [];
+                      const dayKey = isoDate(dateObj);
+                      const day = availByDate.get(dayKey);
+                      const chips: Slot[] = day?.available ?? [];
 
-                    const isSelected = Boolean(modifiers?.selected);
-                    const isDisabled = Boolean(modifiers?.disabled);
+                      const isSelected = Boolean(modifiers?.selected);
+                      const isDisabled = Boolean(modifiers?.disabled);
+                      const isOutside = Boolean(modifiers?.outside);
 
-                    return (
-                      <div
-                        {...(props as any)}
-                        className={[
-                          "h-full w-full rounded-xl p-1 transition",
-                          isSelected ? "bg-slate-900 text-white" : "hover:bg-slate-50",
-                          isDisabled ? "opacity-40 hover:bg-transparent" : "",
-                          (props as any).className ?? "",
-                        ].join(" ")}
-                      >
-                        <div className="flex w-full flex-col items-center justify-center gap-1">
-                          <div className="text-sm">{dateObj.getDate()}</div>
-                          <div className="flex flex-wrap items-center justify-center gap-1">
+                      return (
+                        <button
+                          {...props}
+                          type="button"
+                          className={[
+                            // preserve any className the library passes
+                            props.className ?? "",
+                            // our look
+                            "w-full rounded-xl p-2 text-left transition",
+                            isSelected ? "bg-slate-900 text-white" : "hover:bg-slate-50",
+                            isDisabled ? "opacity-40 hover:bg-transparent" : "",
+                            isOutside ? "text-slate-400" : "",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="text-sm font-semibold">{dateObj.getDate()}</div>
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-1">
                             {(Object.keys(SLOT_SHORT) as Slot[]).map((slot) => {
                               const available = chips.includes(slot);
                               return (
                                 <span
                                   key={slot}
                                   className={[
-                                    "rounded px-1 py-0.5 text-[10px] font-semibold",
+                                    "rounded px-1.5 py-0.5 text-[10px] font-semibold",
                                     available
                                       ? isSelected
                                         ? "bg-white/90 text-slate-900"
@@ -226,12 +237,12 @@ export default function BookingPage() {
                               );
                             })}
                           </div>
-                        </div>
-                      </div>
-                    );
-                  },
-                }}
-              />
+                        </button>
+                      );
+                    },
+                  }}
+                />
+              </div>
 
               {/* Charter chooser */}
               <div className="mt-6">
@@ -418,9 +429,7 @@ export default function BookingPage() {
         {step === 3 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
-            <p className="mt-2 text-slate-600">
-              Next we’ll collect lead passenger details and take payment (Stripe).
-            </p>
+            <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
