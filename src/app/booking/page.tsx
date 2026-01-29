@@ -207,27 +207,29 @@ export default function BookingPage() {
                     selected: "bg-slate-900 text-white border-slate-900",
                   }}
                   classNames={{
-                    months: "w-full",
-                    month: "w-full",
-                    caption: "flex items-center justify-between px-2",
-                    caption_label: "text-base font-semibold text-slate-900",
-                    nav: "flex items-center gap-2",
-                    nav_button:
-                      "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+  months: "w-full",
+  month: "w-full",
+  caption: "flex items-center justify-between px-2",
+  caption_label: "text-base font-semibold text-slate-900",
+  nav: "flex items-center gap-2",
+  nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
 
-                    table: "w-full border-collapse",
-                    head_row: "",
-                    head_cell: "p-2 text-center text-xs font-semibold text-slate-500",
+  // ✅ lock the grid so weekday labels don’t collapse
+  table: "w-full table-fixed border-separate border-spacing-2",
+  head_row: "",
+  head_cell: "w-12 text-center text-xs font-semibold text-slate-500",
 
-                    row: "",
-                    cell: "p-1 text-center align-middle",
+  row: "",
+  cell: "w-12 h-12 p-0 align-middle text-center",
 
-                    day: "h-12 w-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center",
-                    day_selected: "bg-slate-900 text-white border-slate-900",
-                    day_today: "ring-2 ring-slate-300",
-                    day_outside: "text-slate-300",
-                    day_disabled: "opacity-70 cursor-not-allowed",
-                  }}
+  // ✅ button fills the tile area
+  day: "w-12 h-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center",
+  day_selected: "bg-slate-900 text-white border-slate-900",
+  day_today: "ring-2 ring-slate-300",
+  day_outside: "text-slate-300",
+  day_disabled: "opacity-70 cursor-not-allowed",
+}}
+
                 />
               </div>
 
