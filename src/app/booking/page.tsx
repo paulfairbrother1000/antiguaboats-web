@@ -14,22 +14,6 @@ const SLOT_LABEL: Record<Slot, string> = {
   SS: "Sunset Cruise",
 };
 
-// Base display prices (stub / UI display)
-const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
-  FD: 220000,
-  AM: 110000,
-  PM: 120000,
-  SS: 80000,
-};
-
-function formatUsd(cents: number) {
-  return (cents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
-
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -40,6 +24,26 @@ type DayAvail = {
   available: Slot[];
   sold_out: boolean;
 };
+
+type Quote = {
+  currency: string;
+  breakdown: { label: string; amount_cents: number }[];
+  total_amount_cents: number;
+};
+
+function formatMoney(cents: number, currency = "USD") {
+  // cents -> whole currency units with no decimals (your UI currently uses .toFixed(0))
+  const amount = cents / 100;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `$${amount.toFixed(0)}`;
+  }
+}
 
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -59,12 +63,13 @@ export default function BookingPage() {
   const [availability, setAvailability] = useState<DayAvail[]>([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
 
-  const [quote, setQuote] = useState<null | {
-    currency: string;
-    breakdown: { label: string; amount_cents: number }[];
-    total_amount_cents: number;
-  }>(null);
+  // Main quote for selectedSlot (used for right-hand summary)
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
+
+  // Tile prices (one quote per slot, driven by guests + (FD nobu off by default))
+  const [tilePrices, setTilePrices] = useState<Partial<Record<Slot, Quote | null>>>({});
+  const [loadingTilePrices, setLoadingTilePrices] = useState(false);
 
   // Fetch availability for visible month
   useEffect(() => {
@@ -122,13 +127,17 @@ export default function BookingPage() {
     }
   }, [selectedDate, availByDate, selectedSlot]);
 
+  // Keep nobu valid
+  useEffect(() => {
+    if (nobu && selectedSlot !== "FD") setNobu(false);
+  }, [nobu, selectedSlot]);
+
   // Quote whenever slot/guests/nobu changes (and slot is selected)
   useEffect(() => {
     if (!selectedSlot) {
       setQuote(null);
       return;
     }
-    if (nobu && selectedSlot !== "FD") setNobu(false);
 
     setLoadingQuote(true);
     fetch(`/api/quote`, {
@@ -145,7 +154,46 @@ export default function BookingPage() {
       .finally(() => setLoadingQuote(false));
   }, [selectedSlot, guests, nobu]);
 
-  const canContinueStep1 =
+  // Fetch tile prices (no nobu by default on tiles)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setLoadingTilePrices(true);
+      try {
+        const slots: Slot[] = ["FD", "AM", "PM", "SS"];
+        const results: Partial<Record<Slot, Quote | null>> = {};
+
+        await Promise.all(
+          slots.map(async (slot) => {
+            const r = await fetch(`/api/quote`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                slot_mode: slot,
+                guests,
+                nobu: false,
+              }),
+            });
+            const data = await r.json();
+            results[slot] = data?.total_amount_cents ? (data as Quote) : null;
+          })
+        );
+
+        if (!cancelled) setTilePrices(results);
+      } catch {
+        if (!cancelled) setTilePrices({});
+      } finally {
+        if (!cancelled) setLoadingTilePrices(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [guests]);
+
+  const canContinue =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
 
   const selectedAvailText = useMemo(() => {
@@ -156,15 +204,21 @@ export default function BookingPage() {
     return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
-  const summaryTitle = useMemo(() => {
-    if (!selectedSlot) return "—";
-    return SLOT_LABEL[selectedSlot];
-  }, [selectedSlot]);
+  const selectedPriceLine = useMemo(() => {
+    if (!quote) return null;
+    const currency = quote.currency || "USD";
 
-  const summaryBasePrice = useMemo(() => {
-    if (!selectedSlot) return null;
-    return SLOT_BASE_PRICE_CENTS[selectedSlot];
-  }, [selectedSlot]);
+    // Build something like: "6 guests • Nobu surcharge • Total $X"
+    const extras = quote.breakdown
+      .filter((b) => b.amount_cents > 0)
+      .map((b) => b.label);
+
+    const bits = [`${guests} guest${guests === 1 ? "" : "s"}`];
+    if (extras.length) bits.push(...extras);
+    bits.push(`Total ${formatMoney(quote.total_amount_cents, currency)}`);
+
+    return bits.join(" • ");
+  }, [quote, guests]);
 
   return (
     <main className="bg-white text-slate-900">
@@ -209,6 +263,7 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
+              {/* ✅ Calendar: keep layout simple + stable (do not override table/cell structure) */}
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
                 <DayPicker
                   mode="single"
@@ -226,31 +281,20 @@ export default function BookingPage() {
                     available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
-                    unavailable: "bg-slate-900 text-white border-slate-900",
-                    partial: "bg-slate-300 text-slate-900 border-slate-300",
-                    available: "bg-white text-slate-900 border-slate-200",
-                    selected: "bg-slate-900 text-white border-slate-900",
+                    unavailable: "bg-slate-900 text-white",
+                    partial: "bg-slate-400 text-white",
+                    available: "bg-white text-slate-900",
+                    selected: "bg-slate-900 text-white",
                   }}
-                  // ✅ IMPORTANT: keep table semantics (NO grid on rows)
                   classNames={{
                     months: "w-full",
                     month: "w-full",
-                    caption: "flex items-center justify-between px-2 py-2",
-                    caption_label: "text-3xl font-semibold text-slate-900",
+                    caption: "flex items-center justify-between px-2",
+                    caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
                     nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
-
-                    // table layout that keeps 7 fixed columns
-                    table: "w-full table-fixed border-separate border-spacing-2",
-                    head_row: "",
-                    head_cell:
-                      "h-10 w-12 p-0 text-center text-base font-semibold text-slate-600",
-
-                    row: "",
-                    cell: "h-14 w-12 p-0 align-middle",
-
-                    // fill the cell (prevents the stretched full-width rows)
-                    day: "h-14 w-12 rounded-2xl border text-lg font-semibold inline-flex items-center justify-center transition",
+                    head_cell: "px-2 py-2 text-center text-xs font-semibold text-slate-500",
+                    day: "h-12 w-12 rounded-2xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
@@ -291,6 +335,10 @@ export default function BookingPage() {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
                       const selected = selectedSlot === slot;
 
+                      const p = tilePrices[slot];
+                      const priceText =
+                        loadingTilePrices ? "…" : p?.total_amount_cents ? formatMoney(p.total_amount_cents, p.currency) : "—";
+
                       return (
                         <button
                           key={slot}
@@ -310,23 +358,14 @@ export default function BookingPage() {
                           ].join(" ")}
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-semibold">{SLOT_LABEL[slot]}</div>
-                              <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
-                                {enabled ? "Available on this date" : "Unavailable on this date"}
-                              </div>
+                            <div className="font-semibold">{SLOT_LABEL[slot]}</div>
+                            {/* ✅ price on the right (replaces FD/AM/PM/SS codes) */}
+                            <div className={selected ? "text-sm font-semibold text-white" : "text-sm font-semibold text-slate-900"}>
+                              {priceText}
                             </div>
-
-                            {/* Price label (replaces the code) */}
-                            <div
-                              className={[
-                                "text-base font-semibold",
-                                selected ? "text-white/90" : "text-slate-900",
-                                !enabled ? "opacity-60" : "",
-                              ].join(" ")}
-                            >
-                              {formatUsd(SLOT_BASE_PRICE_CENTS[slot])}
-                            </div>
+                          </div>
+                          <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
+                            {enabled ? "Available on this date" : "Unavailable on this date"}
                           </div>
                         </button>
                       );
@@ -386,7 +425,7 @@ export default function BookingPage() {
 
             {/* Summary */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="text-base font-semibold">Booking summary</h3>
+              <h3 className="text-base font-semibold">Cost</h3>
 
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between gap-3">
@@ -395,48 +434,49 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
-                  <span className="font-semibold">{selectedSlot ? summaryTitle : "—"}</span>
+                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
                   <span className="font-semibold">{guests}</span>
                 </div>
+                {selectedSlot === "FD" && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-600">Nobu</span>
+                    <span className="font-semibold">{nobu ? "Yes" : "No"}</span>
+                  </div>
+                )}
               </div>
 
               <div className="my-4 border-t border-slate-200" />
-
-              {/* Price summary */}
-              {selectedSlot && summaryBasePrice !== null && (
-                <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-700">Base price</span>
-                    <span className="font-semibold">{formatUsd(summaryBasePrice)}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    Total updates based on guests (7–8: +$100 each) and options (Nobu +$250).
-                  </div>
-                </div>
-              )}
 
               {loadingQuote && <div className="text-sm text-slate-500">Calculating…</div>}
 
               {quote && (
                 <div className="space-y-2">
-                  <div className="text-sm font-semibold text-slate-900">
-                    Total for {guests} {guests === 1 ? "guest" : "guests"}
-                  </div>
-
-                  {quote.breakdown.map((b, i) => (
-                    <div key={i} className="flex justify-between gap-3 text-sm">
-                      <span className="text-slate-700">{b.label}</span>
-                      <span className="font-semibold">{formatUsd(b.amount_cents)}</span>
+                  {/* ✅ clear summary line */}
+                  {selectedPriceLine && (
+                    <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                      {selectedPriceLine}
                     </div>
-                  ))}
+                  )}
+
+                  {/* ✅ breakdown (guests + extras) */}
+                  <div className="mt-2 space-y-2">
+                    {quote.breakdown.map((b, i) => (
+                      <div key={i} className="flex justify-between gap-3 text-sm">
+                        <span className="text-slate-700">{b.label}</span>
+                        <span className="font-semibold">{formatMoney(b.amount_cents, quote.currency)}</span>
+                      </div>
+                    ))}
+                  </div>
 
                   <div className="my-3 border-t border-slate-200" />
                   <div className="flex justify-between gap-3">
                     <span className="text-base font-semibold">Total</span>
-                    <span className="text-base font-semibold">{formatUsd(quote.total_amount_cents)}</span>
+                    <span className="text-base font-semibold">
+                      {formatMoney(quote.total_amount_cents, quote.currency)}
+                    </span>
                   </div>
                 </div>
               )}
@@ -447,13 +487,11 @@ export default function BookingPage() {
 
               <button
                 type="button"
-                disabled={!canContinueStep1}
+                disabled={!canContinue}
                 onClick={() => setStep(2)}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
-                  canContinueStep1
-                    ? "bg-slate-900 text-white hover:opacity-95"
-                    : "bg-slate-200 text-slate-500",
+                  canContinue ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
                 ].join(" ")}
               >
                 Continue
@@ -470,97 +508,44 @@ export default function BookingPage() {
         )}
 
         {step === 2 && (
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-              <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
-              <p className="mt-2 text-slate-600">
-                Add any questions or useful context (occasion, timings, preferences, allergies,
-                celebrations, etc).
-              </p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
+            <p className="mt-2 text-slate-600">
+              Add any questions or useful context (occasion, timings, preferences, etc).
+            </p>
 
-              <div className="mt-5">
-                <label className="mb-2 block text-sm font-semibold text-slate-900">
-                  Questions / comments (optional)
-                </label>
-                <textarea
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  rows={7}
-                  placeholder="Example: It’s a birthday. We’d love to stop for swimming, and arrive back by 5pm if possible…"
-                  className="w-full rounded-2xl border border-slate-200 p-4 text-sm outline-none focus:border-slate-400"
-                />
-                <div className="mt-2 text-xs text-slate-500">
-                  These notes will be saved with your booking and shared with the crew.
-                </div>
-              </div>
-
-              <div className="mt-6 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-semibold hover:bg-slate-50"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
-                >
-                  Continue
-                </button>
+            <div className="mt-5">
+              <label className="text-sm font-semibold text-slate-800" htmlFor="booking-comments">
+                Comments / notes
+              </label>
+              <textarea
+                id="booking-comments"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                rows={5}
+                className="mt-2 w-full rounded-2xl border border-slate-200 p-4 text-sm shadow-sm outline-none focus:border-slate-400"
+                placeholder="e.g. celebrating a birthday, preferred music, pick-up time flexibility, dietary needs, etc."
+              />
+              <div className="mt-2 text-xs text-slate-500">
+                We’ll attach these notes to your booking request.
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="text-base font-semibold">Booking summary</h3>
-
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-600">Date</span>
-                  <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-600">Charter</span>
-                  <span className="font-semibold">{selectedSlot ? summaryTitle : "—"}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-600">Guests</span>
-                  <span className="font-semibold">{guests}</span>
-                </div>
-              </div>
-
-              <div className="my-4 border-t border-slate-200" />
-
-              {quote ? (
-                <>
-                  <div className="text-sm font-semibold text-slate-900">
-                    Total for {guests} {guests === 1 ? "guest" : "guests"}
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    {quote.breakdown.map((b, i) => (
-                      <div key={i} className="flex justify-between gap-3 text-sm">
-                        <span className="text-slate-700">{b.label}</span>
-                        <span className="font-semibold">{formatUsd(b.amount_cents)}</span>
-                      </div>
-                    ))}
-                    <div className="my-3 border-t border-slate-200" />
-                    <div className="flex justify-between gap-3">
-                      <span className="text-base font-semibold">Total</span>
-                      <span className="text-base font-semibold">{formatUsd(quote.total_amount_cents)}</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-sm text-slate-500">Return to Step 1 to select a charter type.</div>
-              )}
-
-              <div className="mt-4 text-sm text-slate-600">
-                Need clarity?{" "}
-                <Link href="/contact" className="font-semibold underline underline-offset-2">
-                  Contact us
-                </Link>
-              </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-semibold hover:bg-slate-50"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
+              >
+                Continue
+              </button>
             </div>
           </div>
         )}
@@ -571,14 +556,6 @@ export default function BookingPage() {
             <p className="mt-2 text-slate-600">
               Next we’ll collect lead passenger details and take payment (Stripe).
             </p>
-
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
-              <div className="font-semibold text-slate-900">Your notes</div>
-              <div className="mt-1 whitespace-pre-wrap text-slate-700">
-                {comments.trim().length ? comments : "—"}
-              </div>
-            </div>
-
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
@@ -593,14 +570,6 @@ export default function BookingPage() {
               >
                 Pay now (mock)
               </button>
-            </div>
-
-            <div className="mt-4 text-sm text-slate-600">
-              By continuing, you confirm you have read our{" "}
-              <Link href="/terms" className="font-semibold underline underline-offset-2">
-                Terms &amp; Conditions
-              </Link>
-              .
             </div>
           </div>
         )}
