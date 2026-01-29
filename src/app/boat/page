@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BoatCarousel from "@/components/BoatCarousel";
 
 const BOAT_IMAGES = Array.from({ length: 10 }, (_, i) => `/boat/img${i + 1}.jpg`);
 
@@ -17,15 +18,12 @@ export default function BoatPage() {
       {/* HERO */}
       <section className="relative">
         <div className="relative h-[60vh] w-full overflow-hidden md:h-[70vh]">
-          {/* background image */}
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${BOAT_IMAGES[0]})` }}
             aria-hidden="true"
           />
-          {/* overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
-          {/* content */}
           <div className="relative mx-auto flex h-full max-w-6xl items-end px-4 pb-10 sm:px-6 lg:px-8">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               The incredible <span className="whitespace-nowrap">Silver Lady</span>
@@ -41,8 +39,7 @@ export default function BoatPage() {
             Meet <span className="font-semibold text-white">Silver Lady</span> — a head-turning Nor-Tech 390 Sport
             built for fast, smooth Caribbean runs and unforgettable days on the water. With serious power, a
             confidence-inspiring ride, and plenty of space to relax between swim stops, she’s the perfect platform
-            for beach-hopping, sunset vibes, and arriving in style. Ice-cold drinks on board, great tunes, and that
-            “pin-the-throttle” thrill when you want it — this is Antigua boating at its best.
+            for beach-hopping, sunset vibes, and arriving in style.
           </p>
         </div>
       </section>
@@ -50,16 +47,10 @@ export default function BoatPage() {
       {/* TECH SPECS */}
       <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
         <h2 className="mb-5 text-2xl font-semibold tracking-tight">Tech spec</h2>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {TECH_SPECS.map((spec) => (
-            <div
-              key={spec.label}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm"
-            >
-              <div className="text-sm font-medium uppercase tracking-wide text-white/60">
-                {spec.label}
-              </div>
+            <div key={spec.label} className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
+              <div className="text-sm font-medium uppercase tracking-wide text-white/60">{spec.label}</div>
               <div className="mt-1 text-lg font-semibold text-white">{spec.value}</div>
             </div>
           ))}
@@ -70,21 +61,18 @@ export default function BoatPage() {
       <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
         <div className="mb-5 flex items-end justify-between gap-4">
           <h2 className="text-2xl font-semibold tracking-tight">Photos</h2>
-          <p className="hidden text-sm text-white/60 sm:block">
-            Swipe on mobile • Use arrows on desktop
-          </p>
+          <p className="hidden text-sm text-white/60 sm:block">Swipe on mobile • Use arrows on desktop</p>
         </div>
-
-        <BoatCarousel images={BOAT_IMAGES} />
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+          <BoatCarousel images={BOAT_IMAGES} />
+        </div>
       </section>
 
       {/* VIDEO */}
       <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
         <h2 className="mb-5 text-2xl font-semibold tracking-tight">Video</h2>
-
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
           <div className="relative aspect-video w-full">
-            {/* Replace the video ID below with your actual YouTube video ID */}
             <iframe
               className="absolute inset-0 h-full w-full"
               src="https://www.youtube.com/embed/VIDEO_ID_HERE"
@@ -94,10 +82,6 @@ export default function BoatPage() {
             />
           </div>
         </div>
-
-        <p className="mt-3 text-sm text-white/60">
-          Tip: swap <span className="font-mono">VIDEO_ID_HERE</span> for your YouTube ID.
-        </p>
       </section>
 
       {/* ACTION BUTTONS */}
@@ -118,135 +102,5 @@ export default function BoatPage() {
         </div>
       </section>
     </main>
-  );
-}
-
-/**
- * Simple carousel:
- * - Desktop: left/right arrows + dots
- * - Mobile: swipe left/right
- */
-function BoatCarousel({ images }: { images: string[] }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-      <CarouselCore images={images} />
-    </div>
-  );
-}
-
-"use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
-
-function CarouselCore({ images }: { images: string[] }) {
-  const [index, setIndex] = useState(0);
-  const clamp = useMemo(() => (n: number) => (n + images.length) % images.length, [images.length]);
-
-  // Swipe handling
-  const startXRef = useRef<number | null>(null);
-  const lastXRef = useRef<number | null>(null);
-  const isTouchingRef = useRef(false);
-
-  function go(delta: number) {
-    setIndex((prev) => clamp(prev + delta));
-  }
-
-  function onTouchStart(e: React.TouchEvent) {
-    isTouchingRef.current = true;
-    const x = e.touches[0]?.clientX ?? 0;
-    startXRef.current = x;
-    lastXRef.current = x;
-  }
-
-  function onTouchMove(e: React.TouchEvent) {
-    if (!isTouchingRef.current) return;
-    lastXRef.current = e.touches[0]?.clientX ?? null;
-  }
-
-  function onTouchEnd() {
-    if (!isTouchingRef.current) return;
-    isTouchingRef.current = false;
-
-    const startX = startXRef.current;
-    const lastX = lastXRef.current;
-
-    startXRef.current = null;
-    lastXRef.current = null;
-
-    if (startX == null || lastX == null) return;
-
-    const dx = lastX - startX;
-    const threshold = 40; // px
-    if (dx > threshold) go(-1);
-    if (dx < -threshold) go(1);
-  }
-
-  // Keyboard arrows (nice on desktop)
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") go(-1);
-      if (e.key === "ArrowRight") go(1);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clamp]);
-
-  return (
-    <div className="relative">
-      {/* main image */}
-      <div
-        className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        <img
-          src={images[index]}
-          alt={`Silver Lady photo ${index + 1}`}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
-
-        {/* desktop arrows */}
-        <button
-          type="button"
-          aria-label="Previous image"
-          onClick={() => go(-1)}
-          className="absolute left-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-3 text-white backdrop-blur hover:bg-black/55 md:inline-flex"
-        >
-          <span className="text-xl leading-none">‹</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Next image"
-          onClick={() => go(1)}
-          className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-3 text-white backdrop-blur hover:bg-black/55 md:inline-flex"
-        >
-          <span className="text-xl leading-none">›</span>
-        </button>
-      </div>
-
-      {/* dots */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        {images.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={`Go to image ${i + 1}`}
-            onClick={() => setIndex(i)}
-            className={[
-              "h-2.5 w-2.5 rounded-full transition",
-              i === index ? "bg-white" : "bg-white/25 hover:bg-white/40",
-            ].join(" ")}
-          />
-        ))}
-      </div>
-
-      {/* counter */}
-      <div className="mt-3 text-center text-sm text-white/60">
-        {index + 1} / {images.length}
-      </div>
-    </div>
   );
 }
