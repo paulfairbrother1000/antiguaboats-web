@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DayPicker, type DayProps } from "react-day-picker";
-
+import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 
 type Slot = "FD" | "AM" | "PM" | "SS";
@@ -37,7 +36,7 @@ export default function BookingPage() {
   const [guests, setGuests] = useState<number>(6);
   const [nobu, setNobu] = useState<boolean>(false);
 
-  // Calendar month state (Monday start is default in many locales; we’ll enforce en-GB-ish behaviour via weekStartsOn=1)
+  // Calendar month state (Monday start enforced via weekStartsOn=1)
   const [month, setMonth] = useState<Date>(new Date());
 
   const [availability, setAvailability] = useState<DayAvail[]>([]);
@@ -84,7 +83,7 @@ export default function BookingPage() {
     return (date: Date) => {
       const key = isoDate(date);
       const day = availByDate.get(key);
-      if (!day) return false; // if not in range (other month days), allow; calendar will handle
+      if (!day) return false;
       return !day.available.includes(selectedSlot);
     };
   }, [availByDate, selectedSlot]);
@@ -113,7 +112,11 @@ export default function BookingPage() {
     fetch(`/api/quote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slot_mode: selectedSlot, guests, nobu: selectedSlot === "FD" ? nobu : false }),
+      body: JSON.stringify({
+        slot_mode: selectedSlot,
+        guests,
+        nobu: selectedSlot === "FD" ? nobu : false,
+      }),
     })
       .then((r) => r.json())
       .then((data) => setQuote(data?.total_amount_cents ? data : null))
@@ -164,9 +167,7 @@ export default function BookingPage() {
               <div className="mb-3 flex items-end justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold">Step 1 — select charter type and date</h2>
-                  <p className="text-sm text-slate-600">
-                    Days show what’s available: FD / AM / PM / SS.
-                  </p>
+                  <p className="text-sm text-slate-600">Days show what’s available: FD / AM / PM / SS.</p>
                 </div>
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
@@ -180,49 +181,56 @@ export default function BookingPage() {
                 weekStartsOn={1} // Monday
                 disabled={disabledDays}
                 components={{
-  Day: (props: DayProps) => {
-    const dayKey = isoDate(props.date);
-    const day = availByDate.get(dayKey);
-    const chips = day?.available ?? [];
+                  Day: (props) => {
+                    const dateObj = (props as any).day?.date as Date | undefined;
+                    const modifiers = (props as any).modifiers as Record<string, boolean> | undefined;
 
-    // react-day-picker passes button props for accessibility/selection
-    return (
-      <button
-        {...props.buttonProps}
-        className={[
-          "h-full w-full rounded-xl p-1 transition",
-          props.activeModifiers?.selected ? "bg-slate-900 text-white" : "hover:bg-slate-50",
-          props.activeModifiers?.disabled ? "opacity-40 hover:bg-transparent" : "",
-        ].join(" ")}
-      >
-        <div className="flex w-full flex-col items-center justify-center gap-1">
-          <div className="text-sm">{props.date.getDate()}</div>
-          <div className="flex flex-wrap items-center justify-center gap-1">
-            {(Object.keys(SLOT_SHORT) as Slot[]).map((slot) => {
-              const available = chips.includes(slot);
-              return (
-                <span
-                  key={slot}
-                  className={[
-                    "rounded px-1 py-0.5 text-[10px] font-semibold",
-                    available
-                      ? props.activeModifiers?.selected
-                        ? "bg-white/90 text-slate-900"
-                        : "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-400",
-                  ].join(" ")}
-                >
-                  {SLOT_SHORT[slot]}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      </button>
-    );
-  },
-}}
+                    if (!dateObj) return <div {...(props as any)} />;
 
+                    const dayKey = isoDate(dateObj);
+                    const day = availByDate.get(dayKey);
+                    const chips = day?.available ?? [];
+
+                    const isSelected = Boolean(modifiers?.selected);
+                    const isDisabled = Boolean(modifiers?.disabled);
+
+                    return (
+                      <div
+                        {...(props as any)}
+                        className={[
+                          "h-full w-full rounded-xl p-1 transition",
+                          isSelected ? "bg-slate-900 text-white" : "hover:bg-slate-50",
+                          isDisabled ? "opacity-40 hover:bg-transparent" : "",
+                          (props as any).className ?? "",
+                        ].join(" ")}
+                      >
+                        <div className="flex w-full flex-col items-center justify-center gap-1">
+                          <div className="text-sm">{dateObj.getDate()}</div>
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            {(Object.keys(SLOT_SHORT) as Slot[]).map((slot) => {
+                              const available = chips.includes(slot);
+                              return (
+                                <span
+                                  key={slot}
+                                  className={[
+                                    "rounded px-1 py-0.5 text-[10px] font-semibold",
+                                    available
+                                      ? isSelected
+                                        ? "bg-white/90 text-slate-900"
+                                        : "bg-slate-900 text-white"
+                                      : "bg-slate-100 text-slate-400",
+                                  ].join(" ")}
+                                >
+                                  {SLOT_SHORT[slot]}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  },
+                }}
               />
 
               {/* Charter chooser */}
@@ -232,7 +240,7 @@ export default function BookingPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
                     const dayAvail = selectedDayAvail?.available ?? null;
-                    const enabled = !dayAvail || dayAvail.includes(slot); // if no date selected, allow selecting slot (charter-first mode)
+                    const enabled = !dayAvail || dayAvail.includes(slot);
                     const selected = selectedSlot === slot;
 
                     return (
@@ -322,9 +330,7 @@ export default function BookingPage() {
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Date</span>
-                  <span className="font-semibold">
-                    {selectedDate ? isoDate(selectedDate) : "—"}
-                  </span>
+                  <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
@@ -345,25 +351,21 @@ export default function BookingPage() {
                   {quote.breakdown.map((b, i) => (
                     <div key={i} className="flex justify-between gap-3 text-sm">
                       <span className="text-slate-700">{b.label}</span>
-                      <span className="font-semibold">
-                        ${ (b.amount_cents / 100).toFixed(0) }
-                      </span>
+                      <span className="font-semibold">${(b.amount_cents / 100).toFixed(0)}</span>
                     </div>
                   ))}
                   <div className="my-3 border-t border-slate-200" />
                   <div className="flex justify-between gap-3">
                     <span className="text-base font-semibold">Total</span>
                     <span className="text-base font-semibold">
-                      ${ (quote.total_amount_cents / 100).toFixed(0) }
+                      ${(quote.total_amount_cents / 100).toFixed(0)}
                     </span>
                   </div>
                 </div>
               )}
 
               {!quote && !loadingQuote && (
-                <div className="text-sm text-slate-500">
-                  Select a charter type to see the total.
-                </div>
+                <div className="text-sm text-slate-500">Select a charter type to see the total.</div>
               )}
 
               <button
