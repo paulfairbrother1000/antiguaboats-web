@@ -192,7 +192,7 @@ export default function BookingPage() {
                   month={month}
                   onMonthChange={setMonth}
                   weekStartsOn={1}
-                  disabled={disabledDays} // black days unclickable
+                  disabled={disabledDays}
                   showOutsideDays
                   className="w-full"
                   modifiers={{
@@ -201,49 +201,33 @@ export default function BookingPage() {
                     available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
-                    // availability colour
                     unavailable: "bg-slate-900 text-white border-slate-900",
                     partial: "bg-slate-200 text-slate-900 border-slate-200",
                     available: "bg-white text-slate-900 border-slate-200",
-
-                    // keep selected state dominant
                     selected: "bg-slate-900 text-white border-slate-900",
                   }}
-                 classNames={{
-  months: "w-full",
-  month: "w-full",
-  caption: "flex items-center justify-between px-2",
-  caption_label: "text-base font-semibold text-slate-900",
-  nav: "flex items-center gap-2",
-  nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+                  classNames={{
+                    months: "w-full",
+                    month: "w-full",
+                    caption: "flex items-center justify-between px-2",
+                    caption_label: "text-base font-semibold text-slate-900",
+                    nav: "flex items-center gap-2",
+                    nav_button:
+                      "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
 
-  table: "w-full border-collapse",
-  head_row: "",
-  head_cell: "p-2 text-center text-xs font-semibold text-slate-500",
+                    table: "w-full border-collapse",
+                    head_row: "",
+                    head_cell: "p-2 text-center text-xs font-semibold text-slate-500",
 
-  row: "",
-  cell: "p-1 text-center align-middle",
+                    row: "",
+                    cell: "p-1 text-center align-middle",
 
-  day: "h-12 w-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center",
-  day_selected: "bg-slate-900 text-white border-slate-900",
-  day_today: "ring-2 ring-slate-300",
-  day_outside: "text-slate-300",
-  day_disabled: "opacity-70 cursor-not-allowed",
-}}
-
-
-  // ✅ the key change
-  cell: "w-12 h-12 p-0 text-center",
-
-  // ✅ full-tile button, so bg colours fill the square
-  day: "w-full h-full rounded-xl border border-slate-200 text-sm font-semibold flex items-center justify-center transition",
-
-  day_selected: "bg-slate-900 text-white border-slate-900",
-  day_today: "ring-2 ring-slate-300",
-  day_outside: "text-slate-300",
-  day_disabled: "opacity-70 cursor-not-allowed",
-}}
-
+                    day: "h-12 w-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center",
+                    day_selected: "bg-slate-900 text-white border-slate-900",
+                    day_today: "ring-2 ring-slate-300",
+                    day_outside: "text-slate-300",
+                    day_disabled: "opacity-70 cursor-not-allowed",
+                  }}
                 />
               </div>
 
