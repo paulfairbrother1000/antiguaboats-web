@@ -1,89 +1,117 @@
 import { NextResponse } from "next/server";
-import { sbServer } from "@/lib/supabaseServer";
-import { SLOT_DEFS, CharterSlug, SlotId, CHARTER_SLOTS } from "@/lib/slots";
-import { toAntiguaISO, isoRangeOverlaps } from "@/lib/time";
-import { fetchPaceBusyBlocks } from "@/lib/pace";
+import { createClient } from "@supabase/supabase-js";
 
-type ApiDay = {
-  date: string;
-  slots: { slotId: SlotId; label: string; start: string; end: string; available: boolean }[];
-};
+type Slot = "FD" | "AM" | "PM" | "SS";
 
-function eachDay(fromYYYYMMDD: string, toYYYYMMDD: string) {
-  const out: string[] = [];
-  const start = new Date(fromYYYYMMDD + "T00:00:00Z");
-  const end = new Date(toYYYYMMDD + "T00:00:00Z");
-  for (let d = new Date(start); d <= end; d = new Date(d.getTime() + 86400000)) {
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
+const ALL_SLOTS: Slot[] = ["FD", "AM", "PM", "SS"];
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(d: Date, days: number) {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() + days);
+  return x;
+}
+
+/**
+ * Availability rules you defined:
+ * Allowed sets per day:
+ * - FD only
+ * - AM + PM
+ * - AM + SS
+ */
+function computeAvailable(booked: Slot[]): Slot[] {
+  const set = new Set(booked);
+
+  if (set.has("FD")) return [];
+
+  // booked combos that fully consume day
+  if (set.has("AM") && set.has("PM")) return [];
+  if (set.has("AM") && set.has("SS")) return [];
+
+  // single bookings
+  if (set.size === 0) return [...ALL_SLOTS];
+  if (set.has("AM")) return ["PM", "SS"];
+  if (set.has("PM")) return ["AM"];
+  if (set.has("SS")) return ["AM"];
+
+  // unknown/unexpected combo: be safe and return none
+  return [];
+}
+
+function toSlot(value: any): Slot | null {
+  if (value === "FD" || value === "AM" || value === "PM" || value === "SS") return value;
+  return null;
 }
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const charter = (url.searchParams.get("charter") ?? "day") as CharterSlug;
-  const from = url.searchParams.get("from");
-  const to = url.searchParams.get("to");
+  const from = url.searchParams.get("from"); // YYYY-MM-DD
+  const to = url.searchParams.get("to"); // YYYY-MM-DD
 
   if (!from || !to) {
-    return NextResponse.json({ error: "from and to are required (YYYY-MM-DD)" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing query params: from=YYYY-MM-DD&to=YYYY-MM-DD" },
+      { status: 400 }
+    );
   }
 
-  // Restaurant shuttle has no fixed slots
-  if (charter === "restaurant-shuttle") {
-    const days: ApiDay[] = eachDay(from, to).map(date => ({ date, slots: [] }));
-    return NextResponse.json({ days });
+  // Build an inclusive range of dates
+  const fromDate = new Date(`${from}T00:00:00.000Z`);
+  const toDate = new Date(`${to}T00:00:00.000Z`);
+
+  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
+    return NextResponse.json({ error: "Invalid from/to date range" }, { status: 400 });
   }
 
-  const supa = sbServer();
+  // Use UTC timestamps for filtering bookings by start_at
+  const fromTs = `${from}T00:00:00.000Z`;
+  const toExclusive = isoDate(addDays(toDate, 1)) + "T00:00:00.000Z";
 
-  // Pull AB bookings that overlap the whole range
-  const rangeStartISO = toAntiguaISO(from, "00:00");
-  const rangeEndISO = toAntiguaISO(to, "23:59");
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // server-only key
+  );
 
-  const { data: existing, error } = await supa
+  // Pull HOLD + CONFIRMED bookings in range, join charter_types to read slot_mode
+  const { data, error } = await supabase
     .from("bookings")
-    .select("id,start_at,end_at,status,hold_expires_at")
-    .in("status", ["HOLD", "CONFIRMED"])
-    .gte("end_at", rangeStartISO)
-    .lte("start_at", rangeEndISO);
+    .select("start_at,status,charter_types(slot_mode,slug)")
+    .gte("start_at", fromTs)
+    .lt("start_at", toExclusive)
+    .in("status", ["HOLD", "CONFIRMED"]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  const now = Date.now();
-  const abBlocks = (existing ?? [])
-    .filter(b => b.status === "CONFIRMED" || (b.hold_expires_at && Date.parse(b.hold_expires_at) > now))
-    .map(b => ({ start_at: b.start_at, end_at: b.end_at }));
+  // Group booked slots by day (UTC day of start_at)
+  const bookedByDay = new Map<string, Slot[]>();
 
-  // Pace blocks (stubbed to empty right now)
-  const paceBlocks = await fetchPaceBusyBlocks(rangeStartISO, rangeEndISO);
+  for (const row of data ?? []) {
+    const startAt = row.start_at as string;
+    const day = startAt.slice(0, 10); // ISO date portion in UTC if stored as Z
+    const ct = (row as any).charter_types;
 
-  const blocks = [
-    ...abBlocks.map(b => ({ start_at: b.start_at, end_at: b.end_at, source: "ab" as const })),
-    ...paceBlocks.map(b => ({ start_at: b.start_at, end_at: b.end_at, source: "pace" as const })),
-  ];
+    const slot = toSlot(ct?.slot_mode);
+    if (!slot) continue;
 
-  const allowed = CHARTER_SLOTS[charter];
+    const arr = bookedByDay.get(day) ?? [];
+    arr.push(slot);
+    bookedByDay.set(day, arr);
+  }
 
-  const days: ApiDay[] = eachDay(from, to).map(date => {
-    const slots = allowed.map(slotId => {
-      const def = SLOT_DEFS[slotId];
-      const startISO = toAntiguaISO(date, def.start);
-      const endISO = toAntiguaISO(date, def.end);
+  // Create response for every day in the range (even if no bookings)
+  const out: { date: string; booked: Slot[]; available: Slot[]; sold_out: boolean }[] = [];
 
-      const blocked = blocks.some(b => isoRangeOverlaps(startISO, endISO, b.start_at, b.end_at));
+  for (let d = fromDate; d <= toDate; d = addDays(d, 1)) {
+    const day = isoDate(d);
+    const booked = Array.from(new Set(bookedByDay.get(day) ?? [])) as Slot[];
+    const available = computeAvailable(booked);
+    out.push({ date: day, booked, available, sold_out: available.length === 0 });
+  }
 
-      return {
-        slotId,
-        label: def.label,
-        start: def.start,
-        end: def.end,
-        available: !blocked,
-      };
-    });
-
-    return { date, slots };
-  });
-
-  return NextResponse.json({ days });
+  return NextResponse.json(out);
 }
