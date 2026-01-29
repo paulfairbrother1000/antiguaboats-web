@@ -143,39 +143,38 @@ export default function BookingPage() {
     <main className="bg-white text-slate-900">
       {/* Hardening styles for react-day-picker header alignment + column sizing */}
       <style jsx global>{`
-        /* --- react-day-picker hardening: keep weekday labels aligned with day columns --- */
-        .rdp .rdp-table {
-          width: 100%;
-          table-layout: fixed;
-          border-collapse: separate;
-          border-spacing: 0.5rem; /* matches border-spacing-2 */
-        }
+  /* Force weekday header + week rows into a proper 7-column grid */
+  .rdp .rdp-head_row,
+  .rdp .rdp-row {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important; /* same as border-spacing-2 */
+  }
 
-        .rdp .rdp-head_cell {
-          width: 3rem;
-          padding: 0;
-          text-align: center;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: clip;
-        }
+  /* Make the table behave like a simple wrapper */
+  .rdp .rdp-table {
+    display: block !important;
+    width: 100% !important;
+  }
 
-        .rdp .rdp-cell {
-          width: 3rem;
-          height: 3rem;
-          padding: 0;
-          text-align: center;
-          vertical-align: middle;
-        }
+  /* Ensure header cells and day cells fill their grid column */
+  .rdp .rdp-head_cell,
+  .rdp .rdp-cell {
+    width: 100% !important;
+    padding: 0 !important;
+    text-align: center !important;
+  }
 
-        .rdp .rdp-day {
-          width: 3rem;
-          height: 3rem;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-      `}</style>
+  /* Make the actual day button fill the square */
+  .rdp .rdp-day {
+    width: 100% !important;
+    height: 3rem !important; /* 48px */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+`}</style>
+
 
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
