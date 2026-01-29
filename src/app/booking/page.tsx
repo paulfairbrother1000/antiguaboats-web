@@ -14,7 +14,7 @@ const SLOT_LABEL: Record<Slot, string> = {
   SS: "Sunset Cruise",
 };
 
-// Base display prices (matches your current stub pricing)
+// Base display prices (stub / UI display)
 const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
   FD: 220000,
   AM: 110000,
@@ -23,8 +23,7 @@ const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
 };
 
 function formatUsd(cents: number) {
-  const dollars = cents / 100;
-  return dollars.toLocaleString("en-US", {
+  return (cents / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
@@ -232,25 +231,26 @@ export default function BookingPage() {
                     available: "bg-white text-slate-900 border-slate-200",
                     selected: "bg-slate-900 text-white border-slate-900",
                   }}
-                  // ✅ Restore the working layout: use a simple 7-col grid for header + weeks
-                  // This prevents the “Mo / TuWeThFrSaSu” header breakage and keeps columns aligned.
+                  // ✅ IMPORTANT: keep table semantics (NO grid on rows)
                   classNames={{
                     months: "w-full",
                     month: "w-full",
                     caption: "flex items-center justify-between px-2 py-2",
-                    caption_label: "text-base font-semibold text-slate-900",
+                    caption_label: "text-3xl font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
                     nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
 
-                    table: "w-full",
-                    head_row: "grid grid-cols-7 gap-2 px-1",
-                    head_cell: "text-center text-xs font-semibold text-slate-500",
+                    // table layout that keeps 7 fixed columns
+                    table: "w-full table-fixed border-separate border-spacing-2",
+                    head_row: "",
+                    head_cell:
+                      "h-10 w-12 p-0 text-center text-base font-semibold text-slate-600",
 
-                    row: "mt-2 grid grid-cols-7 gap-2 px-1",
-                    cell: "p-0",
+                    row: "",
+                    cell: "h-14 w-12 p-0 align-middle",
 
-                    // full-tile buttons so bg colours fill the squares
-                    day: "h-12 w-full rounded-xl border text-sm font-semibold inline-flex items-center justify-center transition",
+                    // fill the cell (prevents the stretched full-width rows)
+                    day: "h-14 w-12 rounded-2xl border text-lg font-semibold inline-flex items-center justify-center transition",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
@@ -465,12 +465,6 @@ export default function BookingPage() {
                   Contact us
                 </Link>
               </div>
-
-              <div className="mt-2 text-sm text-slate-600">
-                <Link href="/terms" className="font-semibold underline underline-offset-2">
-                  Terms &amp; Conditions
-                </Link>
-              </div>
             </div>
           </div>
         )}
@@ -518,7 +512,6 @@ export default function BookingPage() {
               </div>
             </div>
 
-            {/* Step 2 summary */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-base font-semibold">Booking summary</h3>
 
@@ -575,11 +568,15 @@ export default function BookingPage() {
         {step === 3 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
-            <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
+            <p className="mt-2 text-slate-600">
+              Next we’ll collect lead passenger details and take payment (Stripe).
+            </p>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
               <div className="font-semibold text-slate-900">Your notes</div>
-              <div className="mt-1 whitespace-pre-wrap text-slate-700">{comments.trim().length ? comments : "—"}</div>
+              <div className="mt-1 whitespace-pre-wrap text-slate-700">
+                {comments.trim().length ? comments : "—"}
+              </div>
             </div>
 
             <div className="mt-6 flex gap-3">
