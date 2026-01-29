@@ -7,11 +7,16 @@ const supabase = createClient(
 );
 
 type Slot = "FD" | "AM" | "PM" | "SS";
-
 const ALL_SLOTS: Slot[] = ["FD", "AM", "PM", "SS"];
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+function toSlot(slug: unknown): Slot | undefined {
+  if (typeof slug !== "string") return undefined;
+  const s = slug.trim().toUpperCase();
+  return (s === "FD" || s === "AM" || s === "PM" || s === "SS") ? (s as Slot) : undefined;
 }
 
 export async function GET(req: Request) {
@@ -26,23 +31,21 @@ export async function GET(req: Request) {
     );
   }
 
-  // Build date list
+  // Build date list (inclusive)
   const days: string[] = [];
   let cursor = new Date(from + "T00:00:00Z");
   const end = new Date(to + "T00:00:00Z");
-
   while (cursor <= end) {
     days.push(isoDate(cursor));
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
-  // Pull bookings in range
-  const { data: bookings, error } = await supabase
+  // Fetch bookings in range (ignore cancelled)
+  const { data, error } = await supabase
     .from("bookings")
     .select(
       `
         start_at,
-        end_at,
         status,
         charter_types ( slug )
       `
@@ -52,46 +55,39 @@ export async function GET(req: Request) {
     .not("status", "eq", "CANCELLED");
 
   if (error) {
-    console.error(error);
+    console.error("availability fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 });
   }
 
-  const byDate = new Map<
-    string,
-    {
-      booked: Slot[];
-    }
-  >();
+  const byDate = new Map<string, { booked: Slot[] }>();
 
-  for (const b of bookings ?? []) {
+  for (const b of (data ?? []) as any[]) {
     const date = isoDate(new Date(b.start_at));
-    const slug = b.charter_types?.slug?.toUpperCase() as Slot | undefined;
-    if (!slug) continue;
 
-    if (!byDate.has(date)) {
-      byDate.set(date, { booked: [] });
-    }
-    byDate.get(date)!.booked.push(slug);
+    // Supabase TS sometimes types relationships as arrays. Support both.
+    const ct = b.charter_types;
+    const slugRaw =
+      Array.isArray(ct) ? ct?.[0]?.slug : ct?.slug;
+
+    const slot = toSlot(slugRaw);
+    if (!slot) continue;
+
+    if (!byDate.has(date)) byDate.set(date, { booked: [] });
+    byDate.get(date)!.booked.push(slot);
   }
 
-  // Apply booking rules
+  // Apply booking rules per day
   const result = days.map((date) => {
     const booked = byDate.get(date)?.booked ?? [];
-
     let available: Slot[] = [...ALL_SLOTS];
 
+    // Full day blocks everything
     if (booked.includes("FD")) {
       available = [];
     } else {
-      if (booked.includes("AM")) {
-        available = available.filter((s) => s !== "AM");
-      }
-      if (booked.includes("PM")) {
-        available = available.filter((s) => s !== "PM");
-      }
-      if (booked.includes("SS")) {
-        available = available.filter((s) => s !== "SS");
-      }
+      if (booked.includes("AM")) available = available.filter((s) => s !== "AM");
+      if (booked.includes("PM")) available = available.filter((s) => s !== "PM");
+      if (booked.includes("SS")) available = available.filter((s) => s !== "SS");
     }
 
     return {
