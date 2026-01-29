@@ -24,7 +24,11 @@ const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
 
 function formatUsd(cents: number) {
   const dollars = cents / 100;
-  return dollars.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  return dollars.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
 
 function isoDate(d: Date) {
@@ -175,7 +179,9 @@ export default function BookingPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/15 to-black/10" />
           <div className="relative flex h-full items-end px-6 pb-6 sm:px-10">
-            <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">Book Charter</h1>
+            <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              Book Charter
+            </h1>
           </div>
         </div>
       </section>
@@ -226,6 +232,8 @@ export default function BookingPage() {
                     available: "bg-white text-slate-900 border-slate-200",
                     selected: "bg-slate-900 text-white border-slate-900",
                   }}
+                  // ✅ Restore the working layout: use a simple 7-col grid for header + weeks
+                  // This prevents the “Mo / TuWeThFrSaSu” header breakage and keeps columns aligned.
                   classNames={{
                     months: "w-full",
                     month: "w-full",
@@ -233,12 +241,16 @@ export default function BookingPage() {
                     caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
                     nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
-                    table: "w-full table-fixed border-separate border-spacing-2",
-                    head_row: "",
-                    head_cell: "h-8 text-center text-xs font-semibold text-slate-500",
-                    row: "",
-                    cell: "p-0 text-center align-middle",
-                    day: "h-12 w-12 rounded-xl border text-sm font-semibold inline-flex items-center justify-center transition",
+
+                    table: "w-full",
+                    head_row: "grid grid-cols-7 gap-2 px-1",
+                    head_cell: "text-center text-xs font-semibold text-slate-500",
+
+                    row: "mt-2 grid grid-cols-7 gap-2 px-1",
+                    cell: "p-0",
+
+                    // full-tile buttons so bg colours fill the squares
+                    day: "h-12 w-full rounded-xl border text-sm font-semibold inline-flex items-center justify-center transition",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
@@ -291,7 +303,9 @@ export default function BookingPage() {
                           disabled={!enabled}
                           className={[
                             "rounded-2xl border p-4 text-left shadow-sm transition",
-                            selected ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white",
+                            selected
+                              ? "border-slate-900 bg-slate-900 text-white"
+                              : "border-slate-200 bg-white",
                             enabled ? "hover:bg-slate-50" : "opacity-40 cursor-not-allowed",
                           ].join(" ")}
                         >
@@ -341,7 +355,9 @@ export default function BookingPage() {
                     >
                       +
                     </button>
-                    <div className="text-sm text-slate-600">Includes up to 6. Guests 7–8: +$100 each.</div>
+                    <div className="text-sm text-slate-600">
+                      Includes up to 6. Guests 7–8: +$100 each.
+                    </div>
                   </div>
                 </div>
 
@@ -435,7 +451,9 @@ export default function BookingPage() {
                 onClick={() => setStep(2)}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
-                  canContinueStep1 ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
+                  canContinueStep1
+                    ? "bg-slate-900 text-white hover:opacity-95"
+                    : "bg-slate-200 text-slate-500",
                 ].join(" ")}
               >
                 Continue
@@ -462,7 +480,8 @@ export default function BookingPage() {
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
               <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
               <p className="mt-2 text-slate-600">
-                Add any questions or useful context (occasion, timings, preferences, allergies, celebrations, etc).
+                Add any questions or useful context (occasion, timings, preferences, allergies,
+                celebrations, etc).
               </p>
 
               <div className="mt-5">
@@ -556,15 +575,11 @@ export default function BookingPage() {
         {step === 3 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
-            <p className="mt-2 text-slate-600">
-              Next we’ll collect lead passenger details and take payment (Stripe).
-            </p>
+            <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
               <div className="font-semibold text-slate-900">Your notes</div>
-              <div className="mt-1 whitespace-pre-wrap text-slate-700">
-                {comments.trim().length ? comments : "—"}
-              </div>
+              <div className="mt-1 whitespace-pre-wrap text-slate-700">{comments.trim().length ? comments : "—"}</div>
             </div>
 
             <div className="mt-6 flex gap-3">
