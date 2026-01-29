@@ -14,6 +14,19 @@ const SLOT_LABEL: Record<Slot, string> = {
   SS: "Sunset Cruise",
 };
 
+// Base prices shown on the tiles (independent of guests/extras)
+// Adjust if you want different pricing.
+const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
+  FD: 220_000, // $2200
+  AM: 1_400_00, // $1400
+  PM: 1_400_00, // $1400
+  SS: 80_000, // $800
+};
+
+function fmtUSD(cents: number) {
+  return `$${(cents / 100).toFixed(0)}`;
+}
+
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -25,26 +38,6 @@ type DayAvail = {
   sold_out: boolean;
 };
 
-type Quote = {
-  currency: string;
-  breakdown: { label: string; amount_cents: number }[];
-  total_amount_cents: number;
-};
-
-function formatMoney(cents: number, currency = "USD") {
-  // cents -> whole currency units with no decimals (your UI currently uses .toFixed(0))
-  const amount = cents / 100;
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `$${amount.toFixed(0)}`;
-  }
-}
-
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -55,7 +48,7 @@ export default function BookingPage() {
   const [nobu, setNobu] = useState<boolean>(false);
 
   // Step 2 state
-  const [comments, setComments] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
 
   // Calendar month state (Monday start)
   const [month, setMonth] = useState<Date>(new Date());
@@ -63,13 +56,12 @@ export default function BookingPage() {
   const [availability, setAvailability] = useState<DayAvail[]>([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
 
-  // Main quote for selectedSlot (used for right-hand summary)
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quote, setQuote] = useState<null | {
+    currency: string;
+    breakdown: { label: string; amount_cents: number }[];
+    total_amount_cents: number;
+  }>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
-
-  // Tile prices (one quote per slot, driven by guests + (FD nobu off by default))
-  const [tilePrices, setTilePrices] = useState<Partial<Record<Slot, Quote | null>>>({});
-  const [loadingTilePrices, setLoadingTilePrices] = useState(false);
 
   // Fetch availability for visible month
   useEffect(() => {
@@ -127,17 +119,13 @@ export default function BookingPage() {
     }
   }, [selectedDate, availByDate, selectedSlot]);
 
-  // Keep nobu valid
-  useEffect(() => {
-    if (nobu && selectedSlot !== "FD") setNobu(false);
-  }, [nobu, selectedSlot]);
-
   // Quote whenever slot/guests/nobu changes (and slot is selected)
   useEffect(() => {
     if (!selectedSlot) {
       setQuote(null);
       return;
     }
+    if (nobu && selectedSlot !== "FD") setNobu(false);
 
     setLoadingQuote(true);
     fetch(`/api/quote`, {
@@ -154,45 +142,6 @@ export default function BookingPage() {
       .finally(() => setLoadingQuote(false));
   }, [selectedSlot, guests, nobu]);
 
-  // Fetch tile prices (no nobu by default on tiles)
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      setLoadingTilePrices(true);
-      try {
-        const slots: Slot[] = ["FD", "AM", "PM", "SS"];
-        const results: Partial<Record<Slot, Quote | null>> = {};
-
-        await Promise.all(
-          slots.map(async (slot) => {
-            const r = await fetch(`/api/quote`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                slot_mode: slot,
-                guests,
-                nobu: false,
-              }),
-            });
-            const data = await r.json();
-            results[slot] = data?.total_amount_cents ? (data as Quote) : null;
-          })
-        );
-
-        if (!cancelled) setTilePrices(results);
-      } catch {
-        if (!cancelled) setTilePrices({});
-      } finally {
-        if (!cancelled) setLoadingTilePrices(false);
-      }
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [guests]);
-
   const canContinue =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
 
@@ -204,21 +153,12 @@ export default function BookingPage() {
     return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
-  const selectedPriceLine = useMemo(() => {
-    if (!quote) return null;
-    const currency = quote.currency || "USD";
-
-    // Build something like: "6 guests • Nobu surcharge • Total $X"
-    const extras = quote.breakdown
-      .filter((b) => b.amount_cents > 0)
-      .map((b) => b.label);
-
-    const bits = [`${guests} guest${guests === 1 ? "" : "s"}`];
-    if (extras.length) bits.push(...extras);
-    bits.push(`Total ${formatMoney(quote.total_amount_cents, currency)}`);
-
-    return bits.join(" • ");
-  }, [quote, guests]);
+  const weekdayShort = (d: Date) => {
+    // react-day-picker passes a date representing the weekday; we want Mon-first labels.
+    const map = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    // With weekStartsOn=1, this will still display correctly in each header cell.
+    return map[d.getDay()];
+  };
 
   return (
     <main className="bg-white text-slate-900">
@@ -263,7 +203,6 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-              {/* ✅ Calendar: keep layout simple + stable (do not override table/cell structure) */}
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
                 <DayPicker
                   mode="single"
@@ -275,16 +214,19 @@ export default function BookingPage() {
                   disabled={disabledDays}
                   showOutsideDays
                   className="w-full"
+                  formatters={{
+                    formatWeekdayName: weekdayShort,
+                  }}
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
                     available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
-                    unavailable: "bg-slate-900 text-white",
-                    partial: "bg-slate-400 text-white",
-                    available: "bg-white text-slate-900",
-                    selected: "bg-slate-900 text-white",
+                    unavailable: "bg-slate-900 text-white border-slate-900",
+                    partial: "bg-slate-400 text-white border-slate-400",
+                    available: "bg-white text-slate-900 border-slate-200",
+                    selected: "bg-slate-900 text-white border-slate-900",
                   }}
                   classNames={{
                     months: "w-full",
@@ -292,13 +234,19 @@ export default function BookingPage() {
                     caption: "flex items-center justify-between px-2",
                     caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
-                    nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
-                    head_cell: "px-2 py-2 text-center text-xs font-semibold text-slate-500",
-                    day: "h-12 w-12 rounded-2xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
+                    nav_button:
+                      "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+                    table: "w-full table-fixed border-separate border-spacing-2",
+                    head_row: "",
+                    head_cell: "text-center text-xs font-semibold text-slate-500",
+                    row: "",
+                    cell: "p-0",
+                    day: "w-full aspect-square rounded-2xl border border-slate-200 text-sm font-semibold flex items-center justify-center transition hover:bg-slate-50",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
-                    day_disabled: "opacity-70 cursor-not-allowed",
+                    // IMPORTANT: keep disabled days fully styled (black), no opacity washout
+                    day_disabled: "cursor-not-allowed opacity-100",
                   }}
                 />
               </div>
@@ -335,10 +283,6 @@ export default function BookingPage() {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
                       const selected = selectedSlot === slot;
 
-                      const p = tilePrices[slot];
-                      const priceText =
-                        loadingTilePrices ? "…" : p?.total_amount_cents ? formatMoney(p.total_amount_cents, p.currency) : "—";
-
                       return (
                         <button
                           key={slot}
@@ -350,22 +294,27 @@ export default function BookingPage() {
                           }}
                           disabled={!enabled}
                           className={[
-                            "rounded-2xl border p-4 text-left shadow-sm transition",
+                            "rounded-2xl border p-5 text-left shadow-sm transition",
                             selected
                               ? "border-slate-900 bg-slate-900 text-white"
                               : "border-slate-200 bg-white",
                             enabled ? "hover:bg-slate-50" : "opacity-40 cursor-not-allowed",
                           ].join(" ")}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="font-semibold">{SLOT_LABEL[slot]}</div>
-                            {/* ✅ price on the right (replaces FD/AM/PM/SS codes) */}
-                            <div className={selected ? "text-sm font-semibold text-white" : "text-sm font-semibold text-slate-900"}>
-                              {priceText}
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="text-lg font-semibold">{SLOT_LABEL[slot]}</div>
+                              <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
+                                {enabled ? "Available on this date" : "Unavailable on this date"}
+                              </div>
                             </div>
-                          </div>
-                          <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
-                            {enabled ? "Available on this date" : "Unavailable on this date"}
+
+                            {/* Price (replaces FD/AM/PM/SS codes) */}
+                            <div className={selected ? "text-white" : "text-slate-900"}>
+                              <div className="text-lg font-semibold">
+                                {enabled ? fmtUSD(SLOT_BASE_PRICE_CENTS[slot]) : "—"}
+                              </div>
+                            </div>
                           </div>
                         </button>
                       );
@@ -432,20 +381,24 @@ export default function BookingPage() {
                   <span className="text-slate-600">Date</span>
                   <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
                 </div>
+
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
                   <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
                 </div>
+
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
                   <span className="font-semibold">{guests}</span>
                 </div>
-                {selectedSlot === "FD" && (
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-600">Nobu</span>
-                    <span className="font-semibold">{nobu ? "Yes" : "No"}</span>
-                  </div>
-                )}
+
+                {/* Base price (visible even before quote) */}
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-600">Base price</span>
+                  <span className="font-semibold">
+                    {selectedSlot ? fmtUSD(SLOT_BASE_PRICE_CENTS[selectedSlot]) : "—"}
+                  </span>
+                </div>
               </div>
 
               <div className="my-4 border-t border-slate-200" />
@@ -454,29 +407,17 @@ export default function BookingPage() {
 
               {quote && (
                 <div className="space-y-2">
-                  {/* ✅ clear summary line */}
-                  {selectedPriceLine && (
-                    <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-                      {selectedPriceLine}
+                  {/* Quote breakdown = “for all x people + any extras” */}
+                  {quote.breakdown.map((b, i) => (
+                    <div key={i} className="flex justify-between gap-3 text-sm">
+                      <span className="text-slate-700">{b.label}</span>
+                      <span className="font-semibold">{fmtUSD(b.amount_cents)}</span>
                     </div>
-                  )}
-
-                  {/* ✅ breakdown (guests + extras) */}
-                  <div className="mt-2 space-y-2">
-                    {quote.breakdown.map((b, i) => (
-                      <div key={i} className="flex justify-between gap-3 text-sm">
-                        <span className="text-slate-700">{b.label}</span>
-                        <span className="font-semibold">{formatMoney(b.amount_cents, quote.currency)}</span>
-                      </div>
-                    ))}
-                  </div>
-
+                  ))}
                   <div className="my-3 border-t border-slate-200" />
                   <div className="flex justify-between gap-3">
                     <span className="text-base font-semibold">Total</span>
-                    <span className="text-base font-semibold">
-                      {formatMoney(quote.total_amount_cents, quote.currency)}
-                    </span>
+                    <span className="text-base font-semibold">{fmtUSD(quote.total_amount_cents)}</span>
                   </div>
                 </div>
               )}
@@ -515,19 +456,19 @@ export default function BookingPage() {
             </p>
 
             <div className="mt-5">
-              <label className="text-sm font-semibold text-slate-800" htmlFor="booking-comments">
-                Comments / notes
+              <label className="text-sm font-semibold" htmlFor="booking-notes">
+                Notes / comments
               </label>
               <textarea
-                id="booking-comments"
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                rows={5}
-                className="mt-2 w-full rounded-2xl border border-slate-200 p-4 text-sm shadow-sm outline-none focus:border-slate-400"
-                placeholder="e.g. celebrating a birthday, preferred music, pick-up time flexibility, dietary needs, etc."
+                id="booking-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. celebrating a birthday, prefer a calm cruise, arrival time at Jolly Harbour, any dietary requests…"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+                rows={6}
               />
               <div className="mt-2 text-xs text-slate-500">
-                We’ll attach these notes to your booking request.
+                We’ll attach this to your booking request.
               </div>
             </div>
 
@@ -556,6 +497,30 @@ export default function BookingPage() {
             <p className="mt-2 text-slate-600">
               Next we’ll collect lead passenger details and take payment (Stripe).
             </p>
+
+            {/* quick review including notes */}
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="text-sm font-semibold">Booking summary</div>
+              <div className="mt-2 text-sm text-slate-700">
+                <div>
+                  <span className="text-slate-600">Date:</span>{" "}
+                  <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-600">Charter:</span>{" "}
+                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-600">Guests:</span>{" "}
+                  <span className="font-semibold">{guests}</span>
+                </div>
+                <div className="mt-2">
+                  <span className="text-slate-600">Notes:</span>{" "}
+                  <span className="font-semibold">{notes?.trim() ? notes.trim() : "—"}</span>
+                </div>
+              </div>
+            </div>
+
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
