@@ -66,6 +66,9 @@ export default function BookingPage() {
   const [guests, setGuests] = useState<number>(6);
   const [nobu, setNobu] = useState<boolean>(false);
 
+  // Step 2 state
+  const [comments, setComments] = useState<string>("");
+
   // Month state (display month)
   const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
 
@@ -82,7 +85,6 @@ export default function BookingPage() {
   // Fetch availability for visible month
   useEffect(() => {
     const m = startOfMonth(month);
-    // Keep your UTC range fetch (fine) but keys will match because isoDate normalises to YYYY-MM-DD
     const from = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1));
     const to = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0));
     const fromStr = isoDate(from);
@@ -151,7 +153,7 @@ export default function BookingPage() {
       .finally(() => setLoadingQuote(false));
   }, [selectedSlot, guests, nobu]);
 
-  const canContinue =
+  const canContinueStep1 =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
 
   const selectedAvailText = useMemo(() => {
@@ -180,6 +182,20 @@ export default function BookingPage() {
   const monthLabel = useMemo(() => {
     return month.toLocaleString("en-GB", { month: "long", year: "numeric" });
   }, [month]);
+
+  const bookingPayload = useMemo(() => {
+    return {
+      date: selectedDate ? isoDate(selectedDate) : null,
+      slot: selectedSlot ?? null,
+      guests,
+      nobu: selectedSlot === "FD" ? nobu : false,
+      comments: comments.trim() || null,
+      quote: quote ?? null,
+    };
+  }, [selectedDate, selectedSlot, guests, nobu, comments, quote]);
+
+  const commentLimit = 500;
+  const commentCount = comments.length;
 
   return (
     <main className="bg-white text-slate-900">
@@ -270,7 +286,6 @@ export default function BookingPage() {
                           ? "bg-slate-400 text-white border-slate-400"
                           : "bg-white text-slate-900 border-slate-200";
 
-                    const outsideText = outside ? "text-slate-300" : "";
                     const ring = isSelected ? "ring-2 ring-slate-900 ring-offset-2" : "";
 
                     return (
@@ -286,11 +301,11 @@ export default function BookingPage() {
                           "h-12 w-12 rounded-xl border text-sm font-semibold transition",
                           bg,
                           outside ? "opacity-70" : "",
-                          outsideText,
                           isUnavailable ? "cursor-not-allowed opacity-80" : "hover:opacity-95",
                           ring,
                         ].join(" ")}
                         aria-label={isoDate(date)}
+                        title={isUnavailable ? "Unavailable" : "Select date"}
                       >
                         {date.getDate()}
                       </button>
@@ -453,15 +468,24 @@ export default function BookingPage() {
 
               <button
                 type="button"
-                disabled={!canContinue}
+                disabled={!canContinueStep1}
                 onClick={() => setStep(2)}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
-                  canContinue ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
+                  canContinueStep1 ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
                 ].join(" ")}
               >
                 Continue
               </button>
+
+              {!!comments.trim() && (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="text-xs font-semibold text-slate-600">Notes</div>
+                  <div className="mt-1 text-sm text-slate-800 line-clamp-5 whitespace-pre-wrap">
+                    {comments.trim()}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-4 text-sm text-slate-600">
                 Need clarity?{" "}
@@ -474,24 +498,81 @@ export default function BookingPage() {
         )}
 
         {step === 2 && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
-            <p className="mt-2 text-slate-600">Add any questions or useful context (occasion, timings, preferences, etc).</p>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-semibold hover:bg-slate-50"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
-              >
-                Continue
-              </button>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+              <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
+              <p className="mt-2 text-slate-600">
+                Add any questions or useful context (occasion, timings, preferences, dietary needs, kids onboard, etc).
+              </p>
+
+              <div className="mt-6">
+                <label className="text-sm font-semibold" htmlFor="booking-notes">
+                  Notes (optional)
+                </label>
+                <div className="mt-2">
+                  <textarea
+                    id="booking-notes"
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value.slice(0, commentLimit))}
+                    placeholder="e.g. celebrating a birthday • prefer a calm bay • want to stop for snorkeling • arrive at 10:30…"
+                    className="min-h-[140px] w-full resize-y rounded-2xl border border-slate-200 p-4 text-sm outline-none focus:border-slate-400"
+                  />
+                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                    <span>These notes help the captain plan your day.</span>
+                    <span>
+                      {commentCount}/{commentLimit}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-semibold hover:bg-slate-50"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-base font-semibold">Booking summary</h3>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-600">Date</span>
+                  <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-600">Charter</span>
+                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-600">Guests</span>
+                  <span className="font-semibold">{guests}</span>
+                </div>
+                {selectedSlot === "FD" && nobu && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-600">Nobu</span>
+                    <span className="font-semibold">Yes</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="my-4 border-t border-slate-200" />
+
+              <div className="text-xs font-semibold text-slate-600">Notes</div>
+              <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">
+                {comments.trim() ? comments.trim() : <span className="text-slate-400">None</span>}
+              </div>
             </div>
           </div>
         )}
@@ -500,6 +581,7 @@ export default function BookingPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
             <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
+
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
@@ -511,6 +593,13 @@ export default function BookingPage() {
               <button
                 type="button"
                 className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
+                onClick={() => {
+                  // For now just prove the notes are wired into the "booking payload"
+                  // When you add Stripe, you’ll POST this to /api/checkout or /api/book
+                  // eslint-disable-next-line no-console
+                  console.log("BOOKING PAYLOAD", bookingPayload);
+                  alert("Mock payment — check console for booking payload (includes notes).");
+                }}
               >
                 Pay now (mock)
               </button>
