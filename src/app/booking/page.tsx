@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, type DayProps } from "react-day-picker";
+
 import "react-day-picker/dist/style.css";
 
 type Slot = "FD" | "AM" | "PM" | "SS";
@@ -179,33 +180,49 @@ export default function BookingPage() {
                 weekStartsOn={1} // Monday
                 disabled={disabledDays}
                 components={{
-                  DayContent: (props) => {
-                    const dayKey = isoDate(props.date);
-                    const day = availByDate.get(dayKey);
-                    const chips = day?.available ?? [];
-                    return (
-                      <div className="flex w-full flex-col items-center justify-center gap-1">
-                        <div className="text-sm">{props.date.getDate()}</div>
-                        <div className="flex flex-wrap items-center justify-center gap-1">
-                          {(Object.keys(SLOT_SHORT) as Slot[]).map((slot) => {
-                            const available = chips.includes(slot);
-                            return (
-                              <span
-                                key={slot}
-                                className={[
-                                  "rounded px-1 py-0.5 text-[10px] font-semibold",
-                                  available ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400",
-                                ].join(" ")}
-                              >
-                                {SLOT_SHORT[slot]}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  },
-                }}
+  Day: (props: DayProps) => {
+    const dayKey = isoDate(props.date);
+    const day = availByDate.get(dayKey);
+    const chips = day?.available ?? [];
+
+    // react-day-picker passes button props for accessibility/selection
+    return (
+      <button
+        {...props.buttonProps}
+        className={[
+          "h-full w-full rounded-xl p-1 transition",
+          props.activeModifiers?.selected ? "bg-slate-900 text-white" : "hover:bg-slate-50",
+          props.activeModifiers?.disabled ? "opacity-40 hover:bg-transparent" : "",
+        ].join(" ")}
+      >
+        <div className="flex w-full flex-col items-center justify-center gap-1">
+          <div className="text-sm">{props.date.getDate()}</div>
+          <div className="flex flex-wrap items-center justify-center gap-1">
+            {(Object.keys(SLOT_SHORT) as Slot[]).map((slot) => {
+              const available = chips.includes(slot);
+              return (
+                <span
+                  key={slot}
+                  className={[
+                    "rounded px-1 py-0.5 text-[10px] font-semibold",
+                    available
+                      ? props.activeModifiers?.selected
+                        ? "bg-white/90 text-slate-900"
+                        : "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-400",
+                  ].join(" ")}
+                >
+                  {SLOT_SHORT[slot]}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </button>
+    );
+  },
+}}
+
               />
 
               {/* Charter chooser */}
