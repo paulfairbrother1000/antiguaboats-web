@@ -74,7 +74,7 @@ export default function BookingPage() {
     return availByDate.get(isoDate(selectedDate)) ?? null;
   }, [selectedDate, availByDate]);
 
-  // Calendar colouring rules
+  // Colour rules
   const isUnavailable = (date: Date) => {
     const day = availByDate.get(isoDate(date));
     return day ? day.available.length === 0 : false;
@@ -82,7 +82,6 @@ export default function BookingPage() {
 
   const isFullyAvailable = (date: Date) => {
     const day = availByDate.get(isoDate(date));
-    // Fully available means all 4 options are available
     return day ? day.available.length === 4 : false;
   };
 
@@ -197,29 +196,27 @@ export default function BookingPage() {
                     partial: isPartlyAvailable,
                     available: isFullyAvailable,
                   }}
+                  modifiersClassNames={{
+                    unavailable: "bg-slate-900 text-white border-slate-900",
+                    partial: "bg-slate-200 text-slate-900 border-slate-200",
+                    available: "bg-white text-slate-900 border-slate-200",
+                  }}
                   classNames={{
-                    // make grid feel “app-like”
                     months: "w-full",
                     month: "w-full",
                     caption: "flex items-center justify-between px-2",
                     caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
-                    nav_button:
-                      "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+                    nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
                     head_row: "flex w-full",
                     head_cell: "w-10 text-center text-xs font-semibold text-slate-500",
                     row: "mt-2 flex w-full",
                     cell: "w-10 h-10 p-0 text-center",
-                    day: "w-10 h-10 rounded-xl border border-slate-200 text-sm font-semibold transition",
+                    day: "w-10 h-10 rounded-xl border text-sm font-semibold transition hover:bg-slate-50",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
                     day_disabled: "opacity-60",
-
-                    // our availability colouring (no tokens)
-                    day_unavailable: "bg-slate-900 text-white border-slate-900",
-                    day_partial: "bg-slate-200 text-slate-900 border-slate-200",
-                    day_available: "bg-white text-slate-900 border-slate-200",
                   }}
                 />
               </div>
