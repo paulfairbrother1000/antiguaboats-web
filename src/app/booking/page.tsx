@@ -217,7 +217,6 @@ export default function BookingPage() {
   nav: "flex items-center gap-2",
   nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
 
-  // ✅ table layout (DON'T use flex on rows)
   table: "w-full border-collapse",
   head_row: "",
   head_cell: "p-2 text-center text-xs font-semibold text-slate-500",
@@ -225,13 +224,13 @@ export default function BookingPage() {
   row: "",
   cell: "p-1 text-center align-middle",
 
-  // ✅ make the clickable button fill a square tile
   day: "h-12 w-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center",
   day_selected: "bg-slate-900 text-white border-slate-900",
   day_today: "ring-2 ring-slate-300",
   day_outside: "text-slate-300",
   day_disabled: "opacity-70 cursor-not-allowed",
 }}
+
 
   // ✅ the key change
   cell: "w-12 h-12 p-0 text-center",
