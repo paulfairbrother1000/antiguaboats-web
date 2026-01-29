@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DayPicker } from "react-day-picker";
-import "react-day-picker/dist/style.css";
 
 type Slot = "FD" | "AM" | "PM" | "SS";
 
@@ -17,7 +15,37 @@ const SLOT_LABEL: Record<Slot, string> = {
 const SLOT_SHORT: Record<Slot, string> = { FD: "FD", AM: "AM", PM: "PM", SS: "SS" };
 
 function isoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Use noon local time for stable YYYY-MM-DD keys across timezones
+  const localNoon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+  return localNoon.toISOString().slice(0, 10);
+}
+
+function makeDate(y: number, m: number, day: number) {
+  // noon local time avoids DST/timezone edge cases when using toISOString
+  return new Date(y, m, day, 12, 0, 0);
+}
+
+function startOfMonth(d: Date) {
+  return makeDate(d.getFullYear(), d.getMonth(), 1);
+}
+
+function endOfMonth(d: Date) {
+  return makeDate(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+// Monday-first: Mon=0 ... Sun=6
+function weekdayIndexMonFirst(d: Date) {
+  const js = d.getDay(); // Sun=0 ... Sat=6
+  return (js + 6) % 7; // Mon=0 ... Sun=6
+}
+
+function addDays(d: Date, n: number) {
+  return makeDate(d.getFullYear(), d.getMonth(), d.getDate() + n);
+}
+
+function sameDay(a?: Date, b?: Date) {
+  if (!a || !b) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 type DayAvail = {
@@ -27,7 +55,7 @@ type DayAvail = {
   sold_out: boolean;
 };
 
-const WEEKDAYS_MON_FIRST = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -38,8 +66,8 @@ export default function BookingPage() {
   const [guests, setGuests] = useState<number>(6);
   const [nobu, setNobu] = useState<boolean>(false);
 
-  // Calendar month state (Monday start)
-  const [month, setMonth] = useState<Date>(new Date());
+  // Month state (display month)
+  const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
 
   const [availability, setAvailability] = useState<DayAvail[]>([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
@@ -53,8 +81,10 @@ export default function BookingPage() {
 
   // Fetch availability for visible month
   useEffect(() => {
-    const from = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
-    const to = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0));
+    const m = startOfMonth(month);
+    // Keep your UTC range fetch (fine) but keys will match because isoDate normalises to YYYY-MM-DD
+    const from = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0));
     const fromStr = isoDate(from);
     const toStr = isoDate(to);
 
@@ -85,15 +115,6 @@ export default function BookingPage() {
     if (count === 4) return "available";
     return "partial";
   };
-
-  // Unavailable days are unclickable (disabled)
-  const disabledDays = useMemo(() => {
-    return (date: Date) => {
-      const day = availByDate.get(isoDate(date));
-      if (!day) return false;
-      return (day.available?.length ?? 0) === 0;
-    };
-  }, [availByDate]);
 
   // When date changes, if slot no longer valid, clear it
   useEffect(() => {
@@ -141,66 +162,27 @@ export default function BookingPage() {
     return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
-  // ✅ Force a correct weekday header (7 columns) regardless of react-day-picker internal markup/version
-  const components = useMemo(() => {
-    return {
-      Head: () => (
-        <thead>
-          <tr>
-            {WEEKDAYS_MON_FIRST.map((d) => (
-              <th
-                key={d}
-                scope="col"
-                className="ab-head-cell text-center text-xs font-semibold text-slate-500"
-              >
-                {d}
-              </th>
-            ))}
-          </tr>
-        </thead>
-      ),
-    } as any;
-  }, []);
+  // Build calendar grid (always 7 columns, Monday-first, includes outside days)
+  const calendarDays = useMemo(() => {
+    const mStart = startOfMonth(month);
+    const mEnd = endOfMonth(month);
+
+    const gridStart = addDays(mStart, -weekdayIndexMonFirst(mStart));
+    const gridEnd = addDays(mEnd, 6 - weekdayIndexMonFirst(mEnd));
+
+    const days: { date: Date; inMonth: boolean }[] = [];
+    for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) {
+      days.push({ date: d, inMonth: d.getMonth() === month.getMonth() });
+    }
+    return days;
+  }, [month]);
+
+  const monthLabel = useMemo(() => {
+    return month.toLocaleString("en-GB", { month: "long", year: "numeric" });
+  }, [month]);
 
   return (
     <main className="bg-white text-slate-900">
-      {/* Scope the calendar layout fixes to this page only */}
-      <style jsx global>{`
-        /* Keep the grid consistent and stop weekday header collapsing into weird groups */
-        .ab-rdp .ab-head-cell {
-          height: 2rem;
-        }
-
-        /* Make spacing consistent between header + body */
-        .ab-rdp .rdp-table {
-          width: 100%;
-          border-collapse: separate;
-          border-spacing: 0.5rem;
-          table-layout: fixed;
-        }
-
-        /* Ensure header cells behave like cells (some versions apply odd display rules) */
-        .ab-rdp thead th {
-          width: 3rem;
-        }
-
-        /* Ensure body cells are fixed squares */
-        .ab-rdp .rdp-cell {
-          width: 3rem;
-          height: 3rem;
-          padding: 0;
-          text-align: center;
-          vertical-align: middle;
-        }
-
-        /* Make the day button fill the cell so colour fills the square */
-        .ab-rdp .rdp-day {
-          width: 3rem;
-          height: 3rem;
-          border-radius: 0.75rem;
-        }
-      `}</style>
-
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
         <div className="relative h-[32vh] overflow-hidden rounded-[28px] md:h-[36vh]">
@@ -211,9 +193,7 @@ export default function BookingPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/15 to-black/10" />
           <div className="relative flex h-full items-end px-6 pb-6 sm:px-10">
-            <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Book Charter
-            </h1>
+            <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">Book Charter</h1>
           </div>
         </div>
       </section>
@@ -243,42 +223,80 @@ export default function BookingPage() {
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-                <DayPicker
-                  components={components}
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  month={month}
-                  onMonthChange={setMonth}
-                  weekStartsOn={1}
-                  disabled={disabledDays}
-                  showOutsideDays
-                  className="ab-rdp w-full"
-                  modifiers={{
-                    unavailable: (date) => dayClass(date) === "unavailable",
-                    partial: (date) => dayClass(date) === "partial",
-                    available: (date) => dayClass(date) === "available",
-                  }}
-                  modifiersClassNames={{
-                    unavailable: "bg-slate-900 text-white border-slate-900",
-                    partial: "bg-slate-400 text-white border-slate-400",
-                    available: "bg-white text-slate-900 border-slate-200",
-                    selected: "bg-slate-900 text-white border-slate-900",
-                  }}
-                  classNames={{
-                    months: "w-full",
-                    month: "w-full",
-                    caption: "flex items-center justify-between px-2",
-                    caption_label: "text-base font-semibold text-slate-900",
-                    nav: "flex items-center gap-2",
-                    nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
-                    day: "rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
-                    day_selected: "bg-slate-900 text-white border-slate-900",
-                    day_today: "ring-2 ring-slate-300",
-                    day_outside: "text-slate-300",
-                    day_disabled: "opacity-70 cursor-not-allowed",
-                  }}
-                />
+                {/* Month header */}
+                <div className="mb-3 flex items-center justify-between px-1">
+                  <div className="text-3xl font-semibold tracking-tight">{monthLabel}</div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMonth((m) => startOfMonth(makeDate(m.getFullYear(), m.getMonth() - 1, 1)))}
+                      className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                      aria-label="Previous month"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMonth((m) => startOfMonth(makeDate(m.getFullYear(), m.getMonth() + 1, 1)))}
+                      className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                      aria-label="Next month"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
+
+                {/* Weekday header */}
+                <div className="grid grid-cols-7 gap-2 px-1 pb-2">
+                  {WEEKDAYS.map((d) => (
+                    <div key={d} className="text-center text-xs font-semibold text-slate-500">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Days grid */}
+                <div className="grid grid-cols-7 gap-2 px-1">
+                  {calendarDays.map(({ date, inMonth }) => {
+                    const cls = dayClass(date);
+                    const isUnavailable = cls === "unavailable";
+                    const isSelected = sameDay(date, selectedDate);
+                    const outside = !inMonth;
+
+                    const bg =
+                      cls === "unavailable"
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : cls === "partial"
+                          ? "bg-slate-400 text-white border-slate-400"
+                          : "bg-white text-slate-900 border-slate-200";
+
+                    const outsideText = outside ? "text-slate-300" : "";
+                    const ring = isSelected ? "ring-2 ring-slate-900 ring-offset-2" : "";
+
+                    return (
+                      <button
+                        key={isoDate(date)}
+                        type="button"
+                        disabled={isUnavailable}
+                        onClick={() => {
+                          if (isUnavailable) return;
+                          setSelectedDate(date);
+                        }}
+                        className={[
+                          "h-12 w-12 rounded-xl border text-sm font-semibold transition",
+                          bg,
+                          outside ? "opacity-70" : "",
+                          outsideText,
+                          isUnavailable ? "cursor-not-allowed opacity-80" : "hover:opacity-95",
+                          ring,
+                        ].join(" ")}
+                        aria-label={isoDate(date)}
+                      >
+                        {date.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Selected day availability summary */}
@@ -325,9 +343,7 @@ export default function BookingPage() {
                           disabled={!enabled}
                           className={[
                             "rounded-2xl border p-4 text-left shadow-sm transition",
-                            selected
-                              ? "border-slate-900 bg-slate-900 text-white"
-                              : "border-slate-200 bg-white",
+                            selected ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white",
                             enabled ? "hover:bg-slate-50" : "opacity-40 cursor-not-allowed",
                           ].join(" ")}
                         >
@@ -365,9 +381,7 @@ export default function BookingPage() {
                     >
                       +
                     </button>
-                    <div className="text-sm text-slate-600">
-                      Includes up to 6. Guests 7–8: +$100 each.
-                    </div>
+                    <div className="text-sm text-slate-600">Includes up to 6. Guests 7–8: +$100 each.</div>
                   </div>
                 </div>
 
@@ -428,9 +442,7 @@ export default function BookingPage() {
                   <div className="my-3 border-t border-slate-200" />
                   <div className="flex justify-between gap-3">
                     <span className="text-base font-semibold">Total</span>
-                    <span className="text-base font-semibold">
-                      ${(quote.total_amount_cents / 100).toFixed(0)}
-                    </span>
+                    <span className="text-base font-semibold">${(quote.total_amount_cents / 100).toFixed(0)}</span>
                   </div>
                 </div>
               )}
@@ -464,9 +476,7 @@ export default function BookingPage() {
         {step === 2 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
-            <p className="mt-2 text-slate-600">
-              Add any questions or useful context (occasion, timings, preferences, etc).
-            </p>
+            <p className="mt-2 text-slate-600">Add any questions or useful context (occasion, timings, preferences, etc).</p>
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
@@ -489,9 +499,7 @@ export default function BookingPage() {
         {step === 3 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
-            <p className="mt-2 text-slate-600">
-              Next we’ll collect lead passenger details and take payment (Stripe).
-            </p>
+            <p className="mt-2 text-slate-600">Next we’ll collect lead passenger details and take payment (Stripe).</p>
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
