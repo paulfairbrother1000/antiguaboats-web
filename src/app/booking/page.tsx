@@ -27,6 +27,8 @@ type DayAvail = {
   sold_out: boolean;
 };
 
+const WEEKDAYS_MON_FIRST = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -141,40 +143,13 @@ export default function BookingPage() {
 
   return (
     <main className="bg-white text-slate-900">
-      {/* Hardening styles for react-day-picker header alignment + column sizing */}
+      {/* Make weekday header + day grid always line up by hiding DayPicker's head */}
       <style jsx global>{`
-  /* Force weekday header + week rows into a proper 7-column grid */
-  .rdp .rdp-head_row,
-  .rdp .rdp-row {
-    display: grid !important;
-    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-    gap: 0.5rem !important; /* same as border-spacing-2 */
-  }
-
-  /* Make the table behave like a simple wrapper */
-  .rdp .rdp-table {
-    display: block !important;
-    width: 100% !important;
-  }
-
-  /* Ensure header cells and day cells fill their grid column */
-  .rdp .rdp-head_cell,
-  .rdp .rdp-cell {
-    width: 100% !important;
-    padding: 0 !important;
-    text-align: center !important;
-  }
-
-  /* Make the actual day button fill the square */
-  .rdp .rdp-day {
-    width: 100% !important;
-    height: 3rem !important; /* 48px */
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-`}</style>
-
+        /* Target only our booking calendar instance */
+        .ab-rdp .rdp-head {
+          display: none !important;
+        }
+      `}</style>
 
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
@@ -218,6 +193,18 @@ export default function BookingPage() {
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+                {/* ✅ Our own weekday header (always aligned and spaced) */}
+                <div className="mb-2 grid grid-cols-7 gap-2 px-1">
+                  {WEEKDAYS_MON_FIRST.map((d) => (
+                    <div
+                      key={d}
+                      className="h-8 w-full text-center text-xs font-semibold leading-8 text-slate-500"
+                    >
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
                 <DayPicker
                   mode="single"
                   selected={selectedDate}
@@ -227,7 +214,7 @@ export default function BookingPage() {
                   weekStartsOn={1}
                   disabled={disabledDays}
                   showOutsideDays
-                  className="w-full"
+                  className="ab-rdp w-full"
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
@@ -242,18 +229,18 @@ export default function BookingPage() {
                   classNames={{
                     months: "w-full",
                     month: "w-full",
+
                     caption: "flex items-center justify-between px-2",
                     caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
                     nav_button: "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
 
+                    // Dates grid sizing
                     table: "w-full table-fixed border-separate border-spacing-2",
-                    head_row: "",
-                    head_cell: "w-12 h-8 p-0 text-center text-xs font-semibold text-slate-500",
-
                     row: "",
                     cell: "w-12 h-12 p-0 text-center align-middle",
 
+                    // Tile button fills cell (so shading looks solid)
                     day: "w-12 h-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
