@@ -7,7 +7,7 @@ import { useState } from "react";
 const nav = [
   { href: "/", label: "Home" },
   { href: "/charters", label: "Charters" },
-  { href: "/charters/silver-lady", label: "The Boat" },
+  { href: "/boat", label: "The Boat" },
   { href: "/availability?charter=day", label: "Availability" },
   { href: "/contact", label: "Contact" },
 ];

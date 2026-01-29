@@ -98,7 +98,7 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/charters/silver-lady"
+              href="/boat"
               className="hidden items-center rounded-xl border px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 sm:inline-flex"
             >
               View The Boat
@@ -108,7 +108,7 @@ export default function HomePage() {
           {/* New paragraph BEFORE carousel */}
           <div className="mt-5 rounded-3xl border bg-white p-7">
             <p className="text-slate-700 leading-relaxed">
-              Silver Lady is a Nor-Tech 340 designed for the Caribbean — thrilling performance when
+              Silver Lady is a Nor-Tech 390 designed for the Caribbean — thrilling performance when
               you want it, and a smooth, comfortable ride when you don’t. She’s perfect for island
               hopping, beach drop-offs, snorkelling stops, and sunset runs with your favourite
               people.
@@ -120,7 +120,7 @@ export default function HomePage() {
               images={SILVER_LADY_PHOTOS}
               heightClass="h-[520px]"
               caption="Silver Lady • Nor-Tech Performance"
-              ctaHref="/availability?charter=day"
+              ctaHref="/boat"
               ctaLabel="Book Silver Lady"
             />
           </div>
