@@ -14,21 +14,26 @@ const SLOT_LABEL: Record<Slot, string> = {
   SS: "Sunset Cruise",
 };
 
-// Base prices shown on the tiles (independent of guests/extras)
-// Adjust if you want different pricing.
-const SLOT_BASE_PRICE_CENTS: Record<Slot, number> = {
-  FD: 220_000, // $2200
-  AM: 1_400_00, // $1400
-  PM: 1_400_00, // $1400
-  SS: 80_000, // $800
+/**
+ * Display prices (UI only).
+ * Your /api/quote is still the source of truth for totals.
+ */
+const SLOT_PRICE_CENTS: Record<Slot, number> = {
+  FD: 2200 * 100,
+  AM: 1400 * 100,
+  PM: 1400 * 100,
+  SS: 800 * 100,
 };
 
-function fmtUSD(cents: number) {
-  return `$${(cents / 100).toFixed(0)}`;
-}
+const EXTRA_GUEST_CENTS = 100 * 100; // guests 7–8
+const NOBU_FUEL_CENTS = 250 * 100;
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+function money(cents: number) {
+  return `$${(cents / 100).toFixed(0)}`;
 }
 
 type DayAvail = {
@@ -48,7 +53,7 @@ export default function BookingPage() {
   const [nobu, setNobu] = useState<boolean>(false);
 
   // Step 2 state
-  const [notes, setNotes] = useState<string>("");
+  const [comments, setComments] = useState<string>("");
 
   // Calendar month state (Monday start)
   const [month, setMonth] = useState<Date>(new Date());
@@ -150,15 +155,22 @@ export default function BookingPage() {
     const day = selectedDayAvail;
     if (!day) return "";
     if ((day.available?.length ?? 0) === 0) return "Sold out";
-    return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
+    return (day.available ?? [])
+      .map((s) => SLOT_LABEL[s])
+      .join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
-  const weekdayShort = (d: Date) => {
-    // react-day-picker passes a date representing the weekday; we want Mon-first labels.
-    const map = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-    // With weekStartsOn=1, this will still display correctly in each header cell.
-    return map[d.getDay()];
-  };
+  // ---- Price summary (UI) ----
+  const basePriceCents = selectedSlot ? SLOT_PRICE_CENTS[selectedSlot] : null;
+  const extraGuestsCount = Math.max(0, guests - 6);
+  const extraGuestsCents = extraGuestsCount * EXTRA_GUEST_CENTS;
+  const nobuCents = selectedSlot === "FD" && nobu ? NOBU_FUEL_CENTS : 0;
+  const extrasCents = extraGuestsCents + nobuCents;
+
+  // Prefer API quote total if present, else fall back to local calc
+  const totalCents =
+    quote?.total_amount_cents ??
+    (basePriceCents !== null ? basePriceCents + extrasCents : null);
 
   return (
     <main className="bg-white text-slate-900">
@@ -214,9 +226,6 @@ export default function BookingPage() {
                   disabled={disabledDays}
                   showOutsideDays
                   className="w-full"
-                  formatters={{
-                    formatWeekdayName: weekdayShort,
-                  }}
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
@@ -224,29 +233,33 @@ export default function BookingPage() {
                   }}
                   modifiersClassNames={{
                     unavailable: "bg-slate-900 text-white border-slate-900",
-                    partial: "bg-slate-400 text-white border-slate-400",
+                    partial: "bg-slate-200 text-slate-900 border-slate-200",
                     available: "bg-white text-slate-900 border-slate-200",
                     selected: "bg-slate-900 text-white border-slate-900",
                   }}
                   classNames={{
                     months: "w-full",
                     month: "w-full",
-                    caption: "flex items-center justify-between px-2",
+                    caption: "flex items-center justify-between px-2 pb-2",
                     caption_label: "text-base font-semibold text-slate-900",
                     nav: "flex items-center gap-2",
                     nav_button:
                       "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
+
+                    // IMPORTANT: stable, aligned weekday header + day grid
                     table: "w-full table-fixed border-separate border-spacing-2",
                     head_row: "",
                     head_cell: "text-center text-xs font-semibold text-slate-500",
+
                     row: "",
-                    cell: "p-0",
-                    day: "w-full aspect-square rounded-2xl border border-slate-200 text-sm font-semibold flex items-center justify-center transition hover:bg-slate-50",
+                    cell: "p-0 text-center align-middle",
+
+                    // full tile button fills the cell
+                    day: "w-full h-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
-                    // IMPORTANT: keep disabled days fully styled (black), no opacity washout
-                    day_disabled: "cursor-not-allowed opacity-100",
+                    day_disabled: "opacity-70 cursor-not-allowed",
                   }}
                 />
               </div>
@@ -282,6 +295,7 @@ export default function BookingPage() {
                     {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
                       const selected = selectedSlot === slot;
+                      const price = SLOT_PRICE_CENTS[slot];
 
                       return (
                         <button
@@ -294,27 +308,21 @@ export default function BookingPage() {
                           }}
                           disabled={!enabled}
                           className={[
-                            "rounded-2xl border p-5 text-left shadow-sm transition",
+                            "rounded-2xl border p-4 text-left shadow-sm transition",
                             selected
                               ? "border-slate-900 bg-slate-900 text-white"
                               : "border-slate-200 bg-white",
                             enabled ? "hover:bg-slate-50" : "opacity-40 cursor-not-allowed",
                           ].join(" ")}
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="text-lg font-semibold">{SLOT_LABEL[slot]}</div>
-                              <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
-                                {enabled ? "Available on this date" : "Unavailable on this date"}
-                              </div>
-                            </div>
-
-                            {/* Price (replaces FD/AM/PM/SS codes) */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="font-semibold">{SLOT_LABEL[slot]}</div>
                             <div className={selected ? "text-white" : "text-slate-900"}>
-                              <div className="text-lg font-semibold">
-                                {enabled ? fmtUSD(SLOT_BASE_PRICE_CENTS[slot]) : "—"}
-                              </div>
+                              <span className="text-base font-semibold">{money(price)}</span>
                             </div>
+                          </div>
+                          <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
+                            {enabled ? "Available on this date" : "Unavailable on this date"}
                           </div>
                         </button>
                       );
@@ -354,7 +362,7 @@ export default function BookingPage() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Nobu trip</div>
-                      <div className="text-sm text-slate-600">$250 fuel surcharge</div>
+                      <div className="text-sm text-slate-600">{money(NOBU_FUEL_CENTS)} fuel surcharge</div>
                     </div>
                     <input
                       type="checkbox"
@@ -381,48 +389,51 @@ export default function BookingPage() {
                   <span className="text-slate-600">Date</span>
                   <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
                 </div>
-
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
                   <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
                 </div>
-
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
                   <span className="font-semibold">{guests}</span>
                 </div>
 
-                {/* Base price (visible even before quote) */}
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Base price</span>
                   <span className="font-semibold">
-                    {selectedSlot ? fmtUSD(SLOT_BASE_PRICE_CENTS[selectedSlot]) : "—"}
+                    {basePriceCents !== null ? money(basePriceCents) : "—"}
                   </span>
                 </div>
+
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-600">Extras</span>
+                  <span className="font-semibold">
+                    {selectedSlot ? money(extrasCents) : "—"}
+                  </span>
+                </div>
+
+                {selectedSlot && (
+                  <div className="text-xs text-slate-500">
+                    {extraGuestsCount > 0 ? `+${extraGuestsCount} extra guest(s)` : "No extra guests"}
+                    {selectedSlot === "FD" && nobu ? " • Nobu fuel surcharge" : ""}
+                  </div>
+                )}
               </div>
 
               <div className="my-4 border-t border-slate-200" />
 
               {loadingQuote && <div className="text-sm text-slate-500">Calculating…</div>}
 
-              {quote && (
-                <div className="space-y-2">
-                  {/* Quote breakdown = “for all x people + any extras” */}
-                  {quote.breakdown.map((b, i) => (
-                    <div key={i} className="flex justify-between gap-3 text-sm">
-                      <span className="text-slate-700">{b.label}</span>
-                      <span className="font-semibold">{fmtUSD(b.amount_cents)}</span>
-                    </div>
-                  ))}
-                  <div className="my-3 border-t border-slate-200" />
-                  <div className="flex justify-between gap-3">
-                    <span className="text-base font-semibold">Total</span>
-                    <span className="text-base font-semibold">{fmtUSD(quote.total_amount_cents)}</span>
-                  </div>
+              {selectedSlot && !loadingQuote && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-base font-semibold">Total</span>
+                  <span className="text-base font-semibold">
+                    {totalCents !== null ? money(totalCents) : "—"}
+                  </span>
                 </div>
               )}
 
-              {!quote && !loadingQuote && (
+              {!selectedSlot && !loadingQuote && (
                 <div className="text-sm text-slate-500">Select a charter type to see the total.</div>
               )}
 
@@ -455,20 +466,17 @@ export default function BookingPage() {
               Add any questions or useful context (occasion, timings, preferences, etc).
             </p>
 
-            <div className="mt-5">
-              <label className="text-sm font-semibold" htmlFor="booking-notes">
-                Notes / comments
-              </label>
+            <div className="mt-6">
+              <label className="text-sm font-semibold text-slate-900">Comments</label>
               <textarea
-                id="booking-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. celebrating a birthday, prefer a calm cruise, arrival time at Jolly Harbour, any dietary requests…"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                rows={5}
+                placeholder="e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                rows={6}
               />
               <div className="mt-2 text-xs text-slate-500">
-                We’ll attach this to your booking request.
+                We’ll save this with your booking request.
               </div>
             </div>
 
@@ -498,10 +506,9 @@ export default function BookingPage() {
               Next we’ll collect lead passenger details and take payment (Stripe).
             </p>
 
-            {/* quick review including notes */}
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="text-sm font-semibold">Booking summary</div>
-              <div className="mt-2 text-sm text-slate-700">
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+              <div className="font-semibold text-slate-900">What we’ll submit</div>
+              <div className="mt-2 space-y-1">
                 <div>
                   <span className="text-slate-600">Date:</span>{" "}
                   <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
@@ -514,9 +521,9 @@ export default function BookingPage() {
                   <span className="text-slate-600">Guests:</span>{" "}
                   <span className="font-semibold">{guests}</span>
                 </div>
-                <div className="mt-2">
-                  <span className="text-slate-600">Notes:</span>{" "}
-                  <span className="font-semibold">{notes?.trim() ? notes.trim() : "—"}</span>
+                <div>
+                  <span className="text-slate-600">Comments:</span>{" "}
+                  <span className="font-semibold">{comments?.trim() ? "Included" : "—"}</span>
                 </div>
               </div>
             </div>
