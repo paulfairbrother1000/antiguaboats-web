@@ -74,34 +74,28 @@ export default function BookingPage() {
     return availByDate.get(isoDate(selectedDate)) ?? null;
   }, [selectedDate, availByDate]);
 
-  // Colour rules
-  const isUnavailable = (date: Date) => {
+  // Helper: classify a day based on how many slots remain
+  const dayClass = (date: Date) => {
     const day = availByDate.get(isoDate(date));
-    return day ? day.available.length === 0 : false;
+    if (!day) return "unknown";
+    const count = day.available?.length ?? 0;
+    if (count === 0) return "unavailable";
+    if (count === 4) return "available";
+    return "partial";
   };
 
-  const isFullyAvailable = (date: Date) => {
-    const day = availByDate.get(isoDate(date));
-    return day ? day.available.length === 4 : false;
-  };
-
-  const isPartlyAvailable = (date: Date) => {
-    const day = availByDate.get(isoDate(date));
-    return day ? day.available.length > 0 && day.available.length < 4 : false;
-  };
-
-  // Disable clicking sold-out days (black)
+  // Unavailable days are unclickable (disabled)
   const disabledDays = useMemo(() => {
     return (date: Date) => {
       const day = availByDate.get(isoDate(date));
-      return day ? day.available.length === 0 : false;
+      if (!day) return false;
+      return (day.available?.length ?? 0) === 0;
     };
   }, [availByDate]);
 
   // When date changes, if slot no longer valid, clear it
   useEffect(() => {
     if (!selectedDate) return;
-
     const day = availByDate.get(isoDate(selectedDate));
     if (!day) return;
 
@@ -136,6 +130,16 @@ export default function BookingPage() {
 
   const canContinue =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
+
+  const selectedAvailText = useMemo(() => {
+    if (!selectedDate) return "";
+    const day = selectedDayAvail;
+    if (!day) return "";
+    if ((day.available?.length ?? 0) === 0) return "Sold out";
+    return (day.available ?? [])
+      .map((s) => SLOT_LABEL[s])
+      .join(" • ");
+  }, [selectedDate, selectedDayAvail]);
 
   return (
     <main className="bg-white text-slate-900">
@@ -174,7 +178,7 @@ export default function BookingPage() {
                 <div>
                   <h2 className="text-xl font-semibold">Step 1 — select charter type and date</h2>
                   <p className="text-sm text-slate-600">
-                    Black = unavailable • Grey = partly available • White = available
+                    Black = unavailable • Grey = partly available • White = fully available
                   </p>
                 </div>
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
@@ -188,18 +192,22 @@ export default function BookingPage() {
                   month={month}
                   onMonthChange={setMonth}
                   weekStartsOn={1}
-                  disabled={disabledDays}
+                  disabled={disabledDays} // black days unclickable
                   showOutsideDays
                   className="w-full"
                   modifiers={{
-                    unavailable: isUnavailable,
-                    partial: isPartlyAvailable,
-                    available: isFullyAvailable,
+                    unavailable: (date) => dayClass(date) === "unavailable",
+                    partial: (date) => dayClass(date) === "partial",
+                    available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
+                    // availability colour
                     unavailable: "bg-slate-900 text-white border-slate-900",
                     partial: "bg-slate-200 text-slate-900 border-slate-200",
                     available: "bg-white text-slate-900 border-slate-200",
+
+                    // keep selected state dominant
+                    selected: "bg-slate-900 text-white border-slate-900",
                   }}
                   classNames={{
                     months: "w-full",
@@ -216,9 +224,25 @@ export default function BookingPage() {
                     day_selected: "bg-slate-900 text-white border-slate-900",
                     day_today: "ring-2 ring-slate-300",
                     day_outside: "text-slate-300",
-                    day_disabled: "opacity-60",
+                    day_disabled: "opacity-70 cursor-not-allowed hover:bg-transparent",
                   }}
                 />
+              </div>
+
+              {/* Selected day availability summary */}
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-sm font-semibold">Selected date</div>
+                <div className="mt-1 text-sm text-slate-700">
+                  {selectedDate ? (
+                    <>
+                      <span className="font-semibold">{isoDate(selectedDate)}</span>
+                      <span className="mx-2 text-slate-300">•</span>
+                      <span>{selectedAvailText || "—"}</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">Select a date on the calendar.</span>
+                  )}
+                </div>
               </div>
 
               {/* Charter chooser (only after date selected) */}
@@ -252,7 +276,7 @@ export default function BookingPage() {
                             selected
                               ? "border-slate-900 bg-slate-900 text-white"
                               : "border-slate-200 bg-white",
-                            enabled ? "hover:bg-slate-50" : "opacity-40",
+                            enabled ? "hover:bg-slate-50" : "opacity-40 cursor-not-allowed",
                           ].join(" ")}
                         >
                           <div className="flex items-center justify-between gap-3">
@@ -260,10 +284,7 @@ export default function BookingPage() {
                             <div className="text-xs font-bold sm:hidden">{SLOT_SHORT[slot]}</div>
                           </div>
                           <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
-                            {slot === "FD" && "A full day adventure around Antigua"}
-                            {slot === "AM" && "Morning slot"}
-                            {slot === "PM" && "Afternoon slot"}
-                            {slot === "SS" && "Golden hour cruise"}
+                            {enabled ? "Available on this date" : "Unavailable on this date"}
                           </div>
                         </button>
                       );
