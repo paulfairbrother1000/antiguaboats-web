@@ -57,7 +57,7 @@ export default function BoatCarousel({ images }: { images: string[] }) {
   return (
     <div className="relative">
       <div
-        className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl"
+        className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-slate-100"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -69,11 +69,12 @@ export default function BoatCarousel({ images }: { images: string[] }) {
           loading="lazy"
         />
 
+        {/* desktop arrows */}
         <button
           type="button"
           aria-label="Previous image"
           onClick={() => go(-1)}
-          className="absolute left-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-3 text-white backdrop-blur hover:bg-black/55 md:inline-flex"
+          className="absolute left-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/60 bg-black/35 p-3 text-white backdrop-blur hover:bg-black/45 md:inline-flex"
         >
           <span className="text-xl leading-none">‹</span>
         </button>
@@ -82,12 +83,13 @@ export default function BoatCarousel({ images }: { images: string[] }) {
           type="button"
           aria-label="Next image"
           onClick={() => go(1)}
-          className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-3 text-white backdrop-blur hover:bg-black/55 md:inline-flex"
+          className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/60 bg-black/35 p-3 text-white backdrop-blur hover:bg-black/45 md:inline-flex"
         >
           <span className="text-xl leading-none">›</span>
         </button>
       </div>
 
+      {/* dots */}
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         {images.map((_, i) => (
           <button
@@ -97,13 +99,14 @@ export default function BoatCarousel({ images }: { images: string[] }) {
             onClick={() => setIndex(i)}
             className={[
               "h-2.5 w-2.5 rounded-full transition",
-              i === index ? "bg-white" : "bg-white/25 hover:bg-white/40",
+              i === index ? "bg-slate-900" : "bg-slate-300 hover:bg-slate-400",
             ].join(" ")}
           />
         ))}
       </div>
 
-      <div className="mt-3 text-center text-sm text-white/60">
+      {/* counter */}
+      <div className="mt-3 text-center text-sm text-slate-500">
         {index + 1} / {images.length}
       </div>
     </div>
