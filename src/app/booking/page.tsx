@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DayPicker } from "react-day-picker";
-import "react-day-picker/dist/style.css";
+// IMPORTANT: do NOT import the default RDP stylesheet (it keeps fighting our layout)
+// import "react-day-picker/dist/style.css";
 
 type Slot = "FD" | "AM" | "PM" | "SS";
 
@@ -155,9 +156,7 @@ export default function BookingPage() {
     const day = selectedDayAvail;
     if (!day) return "";
     if ((day.available?.length ?? 0) === 0) return "Sold out";
-    return (day.available ?? [])
-      .map((s) => SLOT_LABEL[s])
-      .join(" • ");
+    return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
   // ---- Price summary (UI) ----
@@ -174,6 +173,111 @@ export default function BookingPage() {
 
   return (
     <main className="bg-white text-slate-900">
+      {/* HARD RESET + CUSTOM RDP LAYOUT (fixes the “stacked pills” + merged weekday names) */}
+      <style jsx global>{`
+        /* Only affect this page's calendar instance */
+        .ab-rdp .rdp {
+          --ab-gap: 10px;
+          width: 100%;
+        }
+
+        .ab-rdp .rdp-months,
+        .ab-rdp .rdp-month {
+          width: 100%;
+        }
+
+        .ab-rdp .rdp-caption {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 6px 10px 6px;
+        }
+
+        .ab-rdp .rdp-caption_label {
+          font-weight: 700;
+          font-size: 18px;
+          color: #0f172a; /* slate-900 */
+        }
+
+        .ab-rdp .rdp-nav {
+          display: flex;
+          gap: 10px;
+        }
+
+        .ab-rdp .rdp-nav_button {
+          border: 1px solid #e2e8f0; /* slate-200 */
+          border-radius: 14px;
+          padding: 10px 12px;
+          background: #fff;
+        }
+        .ab-rdp .rdp-nav_button:hover {
+          background: #f8fafc; /* slate-50 */
+        }
+
+        /* The critical part: force a real table grid with fixed columns */
+        .ab-rdp .rdp-table {
+          width: 100%;
+          table-layout: fixed;
+          border-collapse: separate;
+          border-spacing: var(--ab-gap);
+        }
+
+        .ab-rdp .rdp-head_cell {
+          text-align: center;
+          font-size: 12px;
+          font-weight: 700;
+          color: #64748b; /* slate-500 */
+          padding: 0;
+          height: 26px;
+          width: calc((100% - (6 * var(--ab-gap))) / 7);
+        }
+
+        .ab-rdp .rdp-cell {
+          padding: 0;
+          width: calc((100% - (6 * var(--ab-gap))) / 7);
+        }
+
+        /* Day button fills the cell */
+        .ab-rdp .rdp-day {
+          width: 100%;
+          height: 54px;
+          border-radius: 18px;
+          border: 1px solid #e2e8f0; /* slate-200 */
+          background: #ffffff;
+          font-weight: 700;
+          color: #0f172a; /* slate-900 */
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+        }
+
+        .ab-rdp .rdp-day:hover {
+          background: #f8fafc; /* slate-50 */
+        }
+
+        .ab-rdp .rdp-day_outside {
+          color: #cbd5e1; /* slate-300 */
+        }
+
+        .ab-rdp .rdp-day_disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        /* Selected overrides */
+        .ab-rdp .rdp-day_selected {
+          background: #0f172a; /* slate-900 */
+          border-color: #0f172a;
+          color: #ffffff;
+        }
+
+        /* Today ring */
+        .ab-rdp .rdp-day_today {
+          box-shadow: 0 0 0 2px #cbd5e1 inset; /* slate-300 */
+        }
+      `}</style>
+
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
         <div className="relative h-[32vh] overflow-hidden rounded-[28px] md:h-[36vh]">
@@ -215,7 +319,7 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
                 <DayPicker
                   mode="single"
                   selected={selectedDate}
@@ -225,41 +329,17 @@ export default function BookingPage() {
                   weekStartsOn={1}
                   disabled={disabledDays}
                   showOutsideDays
-                  className="w-full"
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
                     available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
+                    // Availability colour (applied to the day button)
                     unavailable: "bg-slate-900 text-white border-slate-900",
                     partial: "bg-slate-200 text-slate-900 border-slate-200",
                     available: "bg-white text-slate-900 border-slate-200",
                     selected: "bg-slate-900 text-white border-slate-900",
-                  }}
-                  classNames={{
-                    months: "w-full",
-                    month: "w-full",
-                    caption: "flex items-center justify-between px-2 pb-2",
-                    caption_label: "text-base font-semibold text-slate-900",
-                    nav: "flex items-center gap-2",
-                    nav_button:
-                      "rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50",
-
-                    // IMPORTANT: stable, aligned weekday header + day grid
-                    table: "w-full table-fixed border-separate border-spacing-2",
-                    head_row: "",
-                    head_cell: "text-center text-xs font-semibold text-slate-500",
-
-                    row: "",
-                    cell: "p-0 text-center align-middle",
-
-                    // full tile button fills the cell
-                    day: "w-full h-12 rounded-xl border border-slate-200 text-sm font-semibold inline-flex items-center justify-center transition",
-                    day_selected: "bg-slate-900 text-white border-slate-900",
-                    day_today: "ring-2 ring-slate-300",
-                    day_outside: "text-slate-300",
-                    day_disabled: "opacity-70 cursor-not-allowed",
                   }}
                 />
               </div>
@@ -362,7 +442,9 @@ export default function BookingPage() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Nobu trip</div>
-                      <div className="text-sm text-slate-600">{money(NOBU_FUEL_CENTS)} fuel surcharge</div>
+                      <div className="text-sm text-slate-600">
+                        {money(NOBU_FUEL_CENTS)} fuel surcharge
+                      </div>
                     </div>
                     <input
                       type="checkbox"
@@ -374,7 +456,9 @@ export default function BookingPage() {
                     />
                   </div>
                   {selectedSlot !== "FD" && (
-                    <div className="mt-2 text-xs text-slate-500">Available on Full Day Charter only.</div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      Available on Full Day Charter only.
+                    </div>
                   )}
                 </div>
               </div>
@@ -407,9 +491,7 @@ export default function BookingPage() {
 
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Extras</span>
-                  <span className="font-semibold">
-                    {selectedSlot ? money(extrasCents) : "—"}
-                  </span>
+                  <span className="font-semibold">{selectedSlot ? money(extrasCents) : "—"}</span>
                 </div>
 
                 {selectedSlot && (
@@ -443,7 +525,9 @@ export default function BookingPage() {
                 onClick={() => setStep(2)}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
-                  canContinue ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
+                  canContinue
+                    ? "bg-slate-900 text-white hover:opacity-95"
+                    : "bg-slate-200 text-slate-500",
                 ].join(" ")}
               >
                 Continue
@@ -475,9 +559,7 @@ export default function BookingPage() {
                 placeholder="e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               />
-              <div className="mt-2 text-xs text-slate-500">
-                We’ll save this with your booking request.
-              </div>
+              <div className="mt-2 text-xs text-slate-500">We’ll save this with your booking request.</div>
             </div>
 
             <div className="mt-6 flex gap-3">
