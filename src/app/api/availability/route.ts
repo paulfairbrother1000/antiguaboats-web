@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 type Slot = "FD" | "AM" | "PM" | "SS";
 
 const ALL_SLOTS: Slot[] = ["FD", "AM", "PM", "SS"];
@@ -9,109 +14,93 @@ function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-function addDays(d: Date, days: number) {
-  const x = new Date(d);
-  x.setUTCDate(x.getUTCDate() + days);
-  return x;
-}
-
-/**
- * Availability rules you defined:
- * Allowed sets per day:
- * - FD only
- * - AM + PM
- * - AM + SS
- */
-function computeAvailable(booked: Slot[]): Slot[] {
-  const set = new Set(booked);
-
-  if (set.has("FD")) return [];
-
-  // booked combos that fully consume day
-  if (set.has("AM") && set.has("PM")) return [];
-  if (set.has("AM") && set.has("SS")) return [];
-
-  // single bookings
-  if (set.size === 0) return [...ALL_SLOTS];
-  if (set.has("AM")) return ["PM", "SS"];
-  if (set.has("PM")) return ["AM"];
-  if (set.has("SS")) return ["AM"];
-
-  // unknown/unexpected combo: be safe and return none
-  return [];
-}
-
-function toSlot(value: any): Slot | null {
-  if (value === "FD" || value === "AM" || value === "PM" || value === "SS") return value;
-  return null;
-}
-
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const from = url.searchParams.get("from"); // YYYY-MM-DD
-  const to = url.searchParams.get("to"); // YYYY-MM-DD
+  const { searchParams } = new URL(req.url);
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
 
   if (!from || !to) {
     return NextResponse.json(
-      { error: "Missing query params: from=YYYY-MM-DD&to=YYYY-MM-DD" },
+      { error: "from and to parameters are required" },
       { status: 400 }
     );
   }
 
-  // Build an inclusive range of dates
-  const fromDate = new Date(`${from}T00:00:00.000Z`);
-  const toDate = new Date(`${to}T00:00:00.000Z`);
+  // Build date list
+  const days: string[] = [];
+  let cursor = new Date(from + "T00:00:00Z");
+  const end = new Date(to + "T00:00:00Z");
 
-  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
-    return NextResponse.json({ error: "Invalid from/to date range" }, { status: 400 });
+  while (cursor <= end) {
+    days.push(isoDate(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
-  // Use UTC timestamps for filtering bookings by start_at
-  const fromTs = `${from}T00:00:00.000Z`;
-  const toExclusive = isoDate(addDays(toDate, 1)) + "T00:00:00.000Z";
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // server-only key
-  );
-
-  // Pull HOLD + CONFIRMED bookings in range, join charter_types to read slot_mode
-  const { data, error } = await supabase
+  // Pull bookings in range
+  const { data: bookings, error } = await supabase
     .from("bookings")
-    .select("start_at,status,charter_types(slot_mode,slug)")
-    .gte("start_at", fromTs)
-    .lt("start_at", toExclusive)
-    .in("status", ["HOLD", "CONFIRMED"]);
+    .select(
+      `
+        start_at,
+        end_at,
+        status,
+        charter_types ( slug )
+      `
+    )
+    .gte("start_at", from + "T00:00:00Z")
+    .lte("start_at", to + "T23:59:59Z")
+    .not("status", "eq", "CANCELLED");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 });
   }
 
-  // Group booked slots by day (UTC day of start_at)
-  const bookedByDay = new Map<string, Slot[]>();
+  const byDate = new Map<
+    string,
+    {
+      booked: Slot[];
+    }
+  >();
 
-  for (const row of data ?? []) {
-    const startAt = row.start_at as string;
-    const day = startAt.slice(0, 10); // ISO date portion in UTC if stored as Z
-    const ct = (row as any).charter_types;
+  for (const b of bookings ?? []) {
+    const date = isoDate(new Date(b.start_at));
+    const slug = b.charter_types?.slug?.toUpperCase() as Slot | undefined;
+    if (!slug) continue;
 
-    const slot = toSlot(ct?.slot_mode);
-    if (!slot) continue;
-
-    const arr = bookedByDay.get(day) ?? [];
-    arr.push(slot);
-    bookedByDay.set(day, arr);
+    if (!byDate.has(date)) {
+      byDate.set(date, { booked: [] });
+    }
+    byDate.get(date)!.booked.push(slug);
   }
 
-  // Create response for every day in the range (even if no bookings)
-  const out: { date: string; booked: Slot[]; available: Slot[]; sold_out: boolean }[] = [];
+  // Apply booking rules
+  const result = days.map((date) => {
+    const booked = byDate.get(date)?.booked ?? [];
 
-  for (let d = fromDate; d <= toDate; d = addDays(d, 1)) {
-    const day = isoDate(d);
-    const booked = Array.from(new Set(bookedByDay.get(day) ?? [])) as Slot[];
-    const available = computeAvailable(booked);
-    out.push({ date: day, booked, available, sold_out: available.length === 0 });
-  }
+    let available: Slot[] = [...ALL_SLOTS];
 
-  return NextResponse.json(out);
+    if (booked.includes("FD")) {
+      available = [];
+    } else {
+      if (booked.includes("AM")) {
+        available = available.filter((s) => s !== "AM");
+      }
+      if (booked.includes("PM")) {
+        available = available.filter((s) => s !== "PM");
+      }
+      if (booked.includes("SS")) {
+        available = available.filter((s) => s !== "SS");
+      }
+    }
+
+    return {
+      date,
+      booked,
+      available,
+      sold_out: available.length === 0,
+    };
+  });
+
+  return NextResponse.json(result);
 }
