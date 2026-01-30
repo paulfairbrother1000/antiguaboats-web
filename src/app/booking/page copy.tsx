@@ -56,9 +56,6 @@ export default function BookingPage() {
   // Step 2 state
   const [comments, setComments] = useState<string>("");
 
-  // Step 3 state
-  const [acceptedTerms, setAcceptedTerms] = useState<boolean>(false);
-
   // Calendar month state (Monday start)
   const [month, setMonth] = useState<Date>(new Date());
 
@@ -171,178 +168,143 @@ export default function BookingPage() {
 
   // Prefer API quote total if present, else fall back to local calc
   const totalCents =
-    quote?.total_amount_cents ??
-    (basePriceCents !== null ? basePriceCents + extrasCents : null);
-
-  // If user changes booking details after accepting terms, force a re-accept.
-  useEffect(() => {
-    if (step !== 3) return;
-    setAcceptedTerms(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, selectedSlot, guests, nobu]);
+    quote?.total_amount_cents ?? (basePriceCents !== null ? basePriceCents + extrasCents : null);
 
   return (
     <main className="bg-white text-slate-900">
-      {/* RDP: self-contained calendar styling (GRID-based, avoids global CSS table resets) */}
+      {/* RDP: self-contained calendar styling (scoped via .ab-rdp wrapper) */}
       <style jsx global>{`
         .ab-rdp .rdp {
           --ab-gap: 10px;
-          width: 100%;
+          width: 100% !important;
         }
 
+        /* Availability shading (via modifiersClassNames) */
         .ab-rdp .ab-unavailable .rdp-day_button {
-          background: #0f172a;
-          border-color: #0f172a;
-          color: #fff;
+          background: #0f172a !important;
+          border-color: #0f172a !important;
+          color: #fff !important;
         }
         .ab-rdp .ab-partial .rdp-day_button {
-          background: #e2e8f0;
-          border-color: #e2e8f0;
-          color: #0f172a;
+          background: #e2e8f0 !important;
+          border-color: #e2e8f0 !important;
+          color: #0f172a !important;
         }
         .ab-rdp .ab-available .rdp-day_button {
-          background: #fff;
-          border-color: #e2e8f0;
-          color: #0f172a;
+          background: #fff !important;
+          border-color: #e2e8f0 !important;
+          color: #0f172a !important;
         }
 
         .ab-rdp .rdp-months,
         .ab-rdp .rdp-month {
-          width: 100%;
+          width: 100% !important;
         }
 
         .ab-rdp .rdp-caption {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 6px 10px 6px;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          padding: 0 6px 10px 6px !important;
         }
 
         .ab-rdp .rdp-caption_label {
-          font-weight: 700;
-          font-size: 18px;
-          color: #0f172a;
+          font-weight: 700 !important;
+          font-size: 18px !important;
+          color: #0f172a !important;
         }
 
         .ab-rdp .rdp-nav {
-          display: flex;
-          gap: 10px;
+          display: flex !important;
+          gap: 10px !important;
         }
 
         .ab-rdp .rdp-nav_button {
-          border: 1px solid #e2e8f0;
-          border-radius: 14px;
-          padding: 10px 12px;
-          background: #fff;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 14px !important;
+          padding: 10px 12px !important;
+          background: #fff !important;
         }
         .ab-rdp .rdp-nav_button:hover {
-          background: #f8fafc;
+          background: #f8fafc !important;
         }
 
         /* === Force 7-col GRID for weekday row + weeks === */
         .ab-rdp .rdp-month_grid {
-          display: grid;
-          gap: var(--ab-gap);
+          display: grid !important;
+          gap: var(--ab-gap) !important;
         }
 
         .ab-rdp .rdp-weekdays {
-          display: grid;
-          grid-template-columns: repeat(7, minmax(0, 1fr));
-          gap: var(--ab-gap);
+          display: grid !important;
+          grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+          gap: var(--ab-gap) !important;
         }
 
         .ab-rdp .rdp-weekday {
-          height: 26px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          font-size: 12px;
-          font-weight: 700;
-          color: #64748b;
-          white-space: nowrap;
-          padding: 0;
+          height: 26px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          text-align: center !important;
+          font-size: 12px !important;
+          font-weight: 700 !important;
+          color: #64748b !important;
+          white-space: nowrap !important;
+          padding: 0 !important;
         }
 
         .ab-rdp .rdp-weeks {
-          display: grid;
-          gap: var(--ab-gap);
+          display: grid !important;
+          gap: var(--ab-gap) !important;
         }
 
         .ab-rdp .rdp-week {
-          display: grid;
-          grid-template-columns: repeat(7, minmax(0, 1fr));
-          gap: var(--ab-gap);
+          display: grid !important;
+          grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+          gap: var(--ab-gap) !important;
         }
 
         .ab-rdp .rdp-day {
-          width: 100%;
+          width: 100% !important;
         }
 
         /* Inner button (many RDP versions) */
         .ab-rdp .rdp-day_button {
-          width: 100%;
-          height: 54px;
-          border-radius: 18px;
-          border: 1px solid #e2e8f0;
-          background: #ffffff;
-          font-weight: 700;
-          color: #0f172a;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+          width: 100% !important;
+          height: 54px !important;
+          border-radius: 18px !important;
+          border: 1px solid #e2e8f0 !important;
+          background: #ffffff !important;
+          font-weight: 700 !important;
+          color: #0f172a !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
         }
 
         .ab-rdp .rdp-day_button:hover {
-          background: #f8fafc;
+          background: #f8fafc !important;
         }
 
         .ab-rdp .rdp-day_outside .rdp-day_button {
-          color: #cbd5e1;
+          color: #cbd5e1 !important;
         }
 
         .ab-rdp .rdp-day_disabled .rdp-day_button {
-          opacity: 0.7;
-          cursor: not-allowed;
+          opacity: 0.7 !important;
+          cursor: not-allowed !important;
         }
 
         .ab-rdp .rdp-day_today .rdp-day_button {
-          box-shadow: 0 0 0 2px #cbd5e1 inset;
+          box-shadow: 0 0 0 2px #cbd5e1 inset !important;
         }
 
         .ab-rdp .rdp-day_selected .rdp-day_button {
-          background: #0f172a;
-          border-color: #0f172a;
-          color: #ffffff;
-        }
-
-        /* Availability shading */
-        .ab-rdp .rdp-day_unavailable .rdp-day_button {
-          background: #0f172a;
-          border-color: #0f172a;
-          color: #ffffff;
-        }
-
-        .ab-rdp .rdp-day_partial .rdp-day_button {
-          background: #e2e8f0;
-          border-color: #e2e8f0;
-          color: #0f172a;
-        }
-
-        .ab-rdp .rdp-day_available .rdp-day_button {
-          background: #ffffff;
-          border-color: #e2e8f0;
-          color: #0f172a;
-        }
-
-        /* Selected should always win */
-        .ab-rdp .rdp-day_selected.rdp-day_partial .rdp-day_button,
-        .ab-rdp .rdp-day_selected.rdp-day_unavailable .rdp-day_button,
-        .ab-rdp .rdp-day_selected.rdp-day_available .rdp-day_button {
-          background: #0f172a;
-          border-color: #0f172a;
-          color: #ffffff;
+          background: #0f172a !important;
+          border-color: #0f172a !important;
+          color: #ffffff !important;
         }
       `}</style>
 
@@ -387,6 +349,7 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
+              {/* ✅ IMPORTANT: keep the ab-rdp wrapper so the calendar CSS is applied */}
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
                 <DayPicker
                   mode="single"
@@ -592,7 +555,9 @@ export default function BookingPage() {
                 onClick={() => setStep(2)}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
-                  canContinue ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
+                  canContinue
+                    ? "bg-slate-900 text-white hover:opacity-95"
+                    : "bg-slate-200 text-slate-500",
                 ].join(" ")}
               >
                 Continue
@@ -673,44 +638,6 @@ export default function BookingPage() {
                   <span className="font-semibold">{comments?.trim() ? "Included" : "—"}</span>
                 </div>
               </div>
-
-              <div className="my-4 border-t border-slate-200" />
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-slate-600">Total cost</span>
-                <span className="text-base font-semibold">
-                  {totalCents !== null ? money(totalCents) : "—"}
-                </span>
-              </div>
-              <div className="mt-2 text-xs text-slate-500">
-                Total is calculated from your quote (when available), otherwise uses the displayed pricing and extras.
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-5 w-5"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                />
-                <span className="text-sm text-slate-700">
-                  I agree to the{" "}
-                  <Link
-                    href="/terms"
-                    className="font-semibold underline underline-offset-2"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Terms &amp; Conditions
-                  </Link>
-                  .
-                </span>
-              </label>
-              <div className="mt-2 text-xs text-slate-500">
-                You must accept the Terms &amp; Conditions before proceeding to payment.
-              </div>
             </div>
 
             <div className="mt-6 flex gap-3">
@@ -723,13 +650,7 @@ export default function BookingPage() {
               </button>
               <button
                 type="button"
-                disabled={!acceptedTerms || totalCents === null}
-                className={[
-                  "rounded-2xl px-5 py-3 font-semibold transition",
-                  acceptedTerms && totalCents !== null
-                    ? "bg-slate-900 text-white hover:opacity-95"
-                    : "bg-slate-200 text-slate-500 cursor-not-allowed",
-                ].join(" ")}
+                className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
               >
                 Pay now (mock)
               </button>
