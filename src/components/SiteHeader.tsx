@@ -8,7 +8,7 @@ const nav = [
   { href: "/", label: "Home" },
   { href: "/charters", label: "Charters" },
   { href: "/boat", label: "The Boat" },
-  { href: "/availability?charter=day", label: "Availability" },
+  { href: "/booking", label: "Availability" },
   { href: "/contact", label: "Contact" },
 ];
 
