@@ -75,7 +75,7 @@ export default function HomePage() {
                 talk about for years.
               </p>
               <p>
-                Our flagship vessel is a superb Nor-Tech 340 performance boat — fast, smooth and
+                Our flagship vessel is a superb Nor-Tech 390 performance boat — fast, smooth and
                 incredibly capable — paired with an experienced, qualified Captain and friendly crew
                 who’ll make sure your day is safe, relaxed and genuinely special.
               </p>
