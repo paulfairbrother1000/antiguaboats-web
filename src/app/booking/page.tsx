@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DayPicker } from "react-day-picker";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 // IMPORTANT: do NOT import the default RDP stylesheet (it keeps fighting our layout)
 // import "react-day-picker/dist/style.css";
 
@@ -45,53 +44,7 @@ type DayAvail = {
   sold_out: boolean;
 };
 
-/**
- * FIX for FK error:
- * Map Slot -> charter_types.id (UUIDs from your screenshot).
- * (FD = slug "fd", AM="am", PM="pm", SS="ss")
- */
-const CHARTER_TYPE_ID_BY_SLOT: Record<Slot, string> = {
-  FD: "0c8cbd74-3eb6-49eb-84cf-53edb8924860",
-  AM: "c6baf78b-0b88-40fb-aaf9-0e1295124e94",
-  PM: "e7e10d1e-cc2d-48f5-a028-3e80103b9fb5",
-  SS: "c0619b2a-8dbd-4df4-916b-afb880ecc279",
-};
-
-function slotTimesUtc(date: Date, slot: Slot) {
-  // Creates UTC timestamps for start/end on the selected date.
-  // Adjust later if you want to store Antigua-local times explicitly.
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth();
-  const d = date.getUTCDate();
-
-  if (slot === "FD") {
-    return {
-      start_at: new Date(Date.UTC(y, m, d, 10, 0, 0)).toISOString(),
-      end_at: new Date(Date.UTC(y, m, d, 17, 0, 0)).toISOString(),
-    };
-  }
-  if (slot === "AM") {
-    return {
-      start_at: new Date(Date.UTC(y, m, d, 10, 0, 0)).toISOString(),
-      end_at: new Date(Date.UTC(y, m, d, 13, 0, 0)).toISOString(),
-    };
-  }
-  if (slot === "PM") {
-    return {
-      start_at: new Date(Date.UTC(y, m, d, 14, 0, 0)).toISOString(),
-      end_at: new Date(Date.UTC(y, m, d, 17, 0, 0)).toISOString(),
-    };
-  }
-  // SS
-  return {
-    start_at: new Date(Date.UTC(y, m, d, 16, 30, 0)).toISOString(),
-    end_at: new Date(Date.UTC(y, m, d, 18, 30, 0)).toISOString(),
-  };
-}
-
 export default function BookingPage() {
-  const supabase = useMemo(() => createClientComponentClient(), []);
-
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1 state
@@ -246,32 +199,29 @@ export default function BookingPage() {
       return;
     }
 
-    const charter_type_id = CHARTER_TYPE_ID_BY_SLOT[selectedSlot];
-    const { start_at, end_at } = slotTimesUtc(selectedDate, selectedSlot);
-
     try {
       setPaying(true);
 
-      const { data, error } = await supabase
-        .from("bookings")
-        .insert({
-          charter_type_id,
-          start_at,
-          end_at,
-          status: "CONFIRMED",
-          hold_expires_at: null,
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: isoDate(selectedDate),
+          slot: selectedSlot, // FD|AM|PM|SS
+          guests,
+          total_amount_cents: totalCents,
+          currency: "USD",
           customer_name: customerName.trim(),
           customer_email: customerEmail.trim(),
           customer_phone: customerPhone.trim() || null,
-          total_amount_cents: totalCents,
-          currency: "USD",
           notes: comments?.trim() || null,
-        })
-        .select("id")
-        .single();
+        }),
+      });
 
-      if (error) {
-        setPayError(error.message || "Payment failed (mock).");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPayError(data?.error || "Payment failed (mock).");
         return;
       }
 
@@ -627,7 +577,9 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Charter</span>
-                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
+                  <span className="font-semibold">
+                    {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
@@ -674,7 +626,11 @@ export default function BookingPage() {
               <button
                 type="button"
                 disabled={!canContinue}
-                onClick={() => setStep(2)}
+                onClick={() => {
+                  setPayError("");
+                  setBookingId("");
+                  setStep(2);
+                }}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
                   canContinue
@@ -724,7 +680,11 @@ export default function BookingPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setStep(3)}
+                onClick={() => {
+                  setPayError("");
+                  setBookingId("");
+                  setStep(3);
+                }}
                 className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
               >
                 Continue
@@ -782,7 +742,8 @@ export default function BookingPage() {
                   <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-600">Guests:</span> <span className="font-semibold">{guests}</span>
+                  <span className="text-slate-600">Guests:</span>{" "}
+                  <span className="font-semibold">{guests}</span>
                 </div>
                 <div>
                   <span className="text-slate-600">Comments:</span>{" "}
