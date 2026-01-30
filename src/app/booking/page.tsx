@@ -173,119 +173,152 @@ export default function BookingPage() {
 
   return (
     <main className="bg-white text-slate-900">
-  {/* HARD RESET + CUSTOM RDP LAYOUT (fixes the “stacked pills” + merged weekday names) */}
-  <style jsx global>{`
-    /* HARD FORCE the table layout back on (global CSS was breaking it) */
-    .ab-rdp .rdp-table {
-      display: table !important;
-      width: 100%;
-      table-layout: fixed;
-      border-collapse: separate;
-      border-spacing: var(--ab-gap);
-    }
+      {/* RDP: self-contained calendar styling (GRID-based, avoids global CSS table resets) */}
+      <style jsx global>{`
+        .ab-rdp .rdp {
+          --ab-gap: 10px;
+          width: 100%;
+        }
 
-    .ab-rdp .rdp-thead { display: table-header-group !important; }
-    .ab-rdp .rdp-tbody { display: table-row-group !important; }
-    .ab-rdp .rdp-head_row { display: table-row !important; }
-    .ab-rdp .rdp-row { display: table-row !important; }
-    .ab-rdp .rdp-head_cell,
-    .ab-rdp .rdp-cell { display: table-cell !important; }
+        .ab-rdp .rdp-months,
+        .ab-rdp .rdp-month {
+          width: 100%;
+        }
 
-    /* Only affect this page's calendar instance */
-    .ab-rdp .rdp {
-      --ab-gap: 10px;
-      width: 100%;
-    }
+        .ab-rdp .rdp-caption {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 6px 10px 6px;
+        }
 
-    .ab-rdp .rdp-months,
-    .ab-rdp .rdp-month {
-      width: 100%;
-    }
+        .ab-rdp .rdp-caption_label {
+          font-weight: 700;
+          font-size: 18px;
+          color: #0f172a;
+        }
 
-    .ab-rdp .rdp-caption {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 6px 10px 6px;
-    }
+        .ab-rdp .rdp-nav {
+          display: flex;
+          gap: 10px;
+        }
 
-    .ab-rdp .rdp-caption_label {
-      font-weight: 700;
-      font-size: 18px;
-      color: #0f172a; /* slate-900 */
-    }
+        .ab-rdp .rdp-nav_button {
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 10px 12px;
+          background: #fff;
+        }
+        .ab-rdp .rdp-nav_button:hover {
+          background: #f8fafc;
+        }
 
-    .ab-rdp .rdp-nav {
-      display: flex;
-      gap: 10px;
-    }
+        /* === Force 7-col GRID for weekday row + weeks === */
+        .ab-rdp .rdp-month_grid {
+          display: grid;
+          gap: var(--ab-gap);
+        }
 
-    .ab-rdp .rdp-nav_button {
-      border: 1px solid #e2e8f0; /* slate-200 */
-      border-radius: 14px;
-      padding: 10px 12px;
-      background: #fff;
-    }
+        .ab-rdp .rdp-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: var(--ab-gap);
+        }
 
-    .ab-rdp .rdp-nav_button:hover {
-      background: #f8fafc; /* slate-50 */
-    }
+        .ab-rdp .rdp-weekday {
+          height: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          font-size: 12px;
+          font-weight: 700;
+          color: #64748b;
+          white-space: nowrap;
+          padding: 0;
+        }
 
-    .ab-rdp .rdp-head_cell {
-      text-align: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: #64748b; /* slate-500 */
-      padding: 0;
-      height: 26px;
-      width: calc((100% - (6 * var(--ab-gap))) / 7);
-    }
+        .ab-rdp .rdp-weeks {
+          display: grid;
+          gap: var(--ab-gap);
+        }
 
-    .ab-rdp .rdp-cell {
-      padding: 0;
-      width: calc((100% - (6 * var(--ab-gap))) / 7);
-    }
+        .ab-rdp .rdp-week {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: var(--ab-gap);
+        }
 
-    /* Day button fills the cell */
-    .ab-rdp .rdp-day {
-      width: 100%;
-      height: 54px;
-      border-radius: 18px;
-      border: 1px solid #e2e8f0; /* slate-200 */
-      background: #ffffff;
-      font-weight: 700;
-      color: #0f172a; /* slate-900 */
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-    }
+        .ab-rdp .rdp-day {
+          width: 100%;
+        }
 
-    .ab-rdp .rdp-day:hover {
-      background: #f8fafc; /* slate-50 */
-    }
+        /* Inner button (many RDP versions) */
+        .ab-rdp .rdp-day_button {
+          width: 100%;
+          height: 54px;
+          border-radius: 18px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
+          font-weight: 700;
+          color: #0f172a;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+        }
 
-    .ab-rdp .rdp-day_outside {
-      color: #cbd5e1; /* slate-300 */
-    }
+        .ab-rdp .rdp-day_button:hover {
+          background: #f8fafc;
+        }
 
-    .ab-rdp .rdp-day_disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
+        .ab-rdp .rdp-day_outside .rdp-day_button {
+          color: #cbd5e1;
+        }
 
-    /* Selected overrides */
-    .ab-rdp .rdp-day_selected {
-      background: #0f172a; /* slate-900 */
-      border-color: #0f172a;
-      color: #ffffff;
-    }
+        .ab-rdp .rdp-day_disabled .rdp-day_button {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
 
-    /* Today ring */
-    .ab-rdp .rdp-day_today {
-      box-shadow: 0 0 0 2px #cbd5e1 inset; /* slate-300 */
-    }
-  `}</style>
+        .ab-rdp .rdp-day_today .rdp-day_button {
+          box-shadow: 0 0 0 2px #cbd5e1 inset;
+        }
+
+        .ab-rdp .rdp-day_selected .rdp-day_button {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #ffffff;
+        }
+
+        /* Availability shading */
+        .ab-rdp .rdp-day_unavailable .rdp-day_button {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #ffffff;
+        }
+
+        .ab-rdp .rdp-day_partial .rdp-day_button {
+          background: #e2e8f0;
+          border-color: #e2e8f0;
+          color: #0f172a;
+        }
+
+        .ab-rdp .rdp-day_available .rdp-day_button {
+          background: #ffffff;
+          border-color: #e2e8f0;
+          color: #0f172a;
+        }
+
+        /* Selected should always win */
+        .ab-rdp .rdp-day_selected.rdp-day_partial .rdp-day_button,
+        .ab-rdp .rdp-day_selected.rdp-day_unavailable .rdp-day_button,
+        .ab-rdp .rdp-day_selected.rdp-day_available .rdp-day_button {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #ffffff;
+        }
+      `}</style>
 
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
@@ -328,24 +361,24 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
-  <DayPicker
-    mode="single"
-    selected={selectedDate}
-    onSelect={setSelectedDate}
-    month={month}
-    onMonthChange={setMonth}
-    weekStartsOn={1}
-    disabled={disabledDays}
-    showOutsideDays
-    modifiers={{
-      unavailable: (date) => dayClass(date) === "unavailable",
-      partial: (date) => dayClass(date) === "partial",
-      available: (date) => dayClass(date) === "available",
-    }}
-  />
-</div>
-
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
+                <DayPicker
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  month={month}
+                  onMonthChange={setMonth}
+                  weekStartsOn={1}
+                  disabled={disabledDays}
+                  showOutsideDays
+                  className="w-full"
+                  modifiers={{
+                    unavailable: (date) => dayClass(date) === "unavailable",
+                    partial: (date) => dayClass(date) === "partial",
+                    available: (date) => dayClass(date) === "available",
+                  }}
+                />
+              </div>
 
               {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
@@ -445,9 +478,7 @@ export default function BookingPage() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Nobu trip</div>
-                      <div className="text-sm text-slate-600">
-                        {money(NOBU_FUEL_CENTS)} fuel surcharge
-                      </div>
+                      <div className="text-sm text-slate-600">{money(NOBU_FUEL_CENTS)} fuel surcharge</div>
                     </div>
                     <input
                       type="checkbox"
@@ -459,9 +490,7 @@ export default function BookingPage() {
                     />
                   </div>
                   {selectedSlot !== "FD" && (
-                    <div className="mt-2 text-xs text-slate-500">
-                      Available on Full Day Charter only.
-                    </div>
+                    <div className="mt-2 text-xs text-slate-500">Available on Full Day Charter only.</div>
                   )}
                 </div>
               </div>
@@ -528,9 +557,7 @@ export default function BookingPage() {
                 onClick={() => setStep(2)}
                 className={[
                   "mt-6 w-full rounded-2xl px-5 py-3 text-base font-semibold transition",
-                  canContinue
-                    ? "bg-slate-900 text-white hover:opacity-95"
-                    : "bg-slate-200 text-slate-500",
+                  canContinue ? "bg-slate-900 text-white hover:opacity-95" : "bg-slate-200 text-slate-500",
                 ].join(" ")}
               >
                 Continue
