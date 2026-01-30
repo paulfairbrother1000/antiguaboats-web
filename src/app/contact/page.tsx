@@ -68,15 +68,15 @@ export default function ContactPage() {
   const [error, setError] = useState<string | null>(null);
 
   const selectedCountry = useMemo(() => {
-    return (
-      COUNTRIES.find((c) => c.iso2 === countryIso2) ?? COUNTRIES[0]
-    );
+    return COUNTRIES.find((c) => c.iso2 === countryIso2) ?? COUNTRIES[0];
   }, [countryIso2]);
 
   const mobileE164 = useMemo(() => {
     const digits = mobileLocal.replace(/[^\d]/g, "");
     if (!digits) return "";
-    return `${selectedCountry.dial}${digits.startsWith("0") ? digits.slice(1) : digits}`;
+    return `${selectedCountry.dial}${
+      digits.startsWith("0") ? digits.slice(1) : digits
+    }`;
   }, [mobileLocal, selectedCountry.dial]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -98,11 +98,27 @@ export default function ContactPage() {
     setIsSubmitting(true);
 
     try {
-      /**
-       * Wire this up when ready (example):
-       * await fetch("/api/contact", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ ... }) })
-       */
-      await new Promise((r) => setTimeout(r, 450));
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: f,
+          lastName: l,
+          email: em,
+          countryIso2,
+          countryDial: selectedCountry.dial,
+          mobileLocal,
+          mobileE164,
+          reason,
+          message: msg,
+          pagePath: "/contact",
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Failed to send message.");
+      }
 
       setSubmitted(true);
       setFirstName("");
@@ -112,8 +128,8 @@ export default function ContactPage() {
       setMobileLocal("");
       setReason("Charter enquiry");
       setMessage("");
-    } catch (err) {
-      setError("Something went wrong sending your message. Please try again.");
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong sending your message. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -164,11 +180,17 @@ export default function ContactPage() {
               <div className="mt-6 space-y-3 text-sm">
                 <div className="flex items-center gap-3 text-slate-700">
                   <Phone className="h-4 w-4" />
-                  <span>Mobile / WhatsApp: <span className="font-medium">Coming soon</span></span>
+                  <span>
+                    Mobile / WhatsApp:{" "}
+                    <span className="font-medium">Coming soon</span>
+                  </span>
                 </div>
                 <div className="flex items-center gap-3 text-slate-700">
                   <Mail className="h-4 w-4" />
-                  <span>Email: <span className="font-medium">hello@antigua-boats.com</span></span>
+                  <span>
+                    Email:{" "}
+                    <span className="font-medium">hello@antigua-boats.com</span>
+                  </span>
                 </div>
               </div>
 
@@ -349,7 +371,9 @@ export default function ContactPage() {
                     </label>
                     <select
                       value={reason}
-                      onChange={(e) => setReason(e.target.value as Reason)}
+                      onChange={(e) =>
+                        setReason(e.target.value as Reason)
+                      }
                       className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm outline-none focus:border-slate-500"
                     >
                       {REASONS.map((r) => (
