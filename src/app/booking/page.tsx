@@ -180,6 +180,11 @@ export default function BookingPage() {
           width: 100%;
         }
 
+        .ab-rdp .ab-unavailable .rdp-day_button { background:#0f172a; border-color:#0f172a; color:#fff; }
+.ab-rdp .ab-partial .rdp-day_button { background:#e2e8f0; border-color:#e2e8f0; color:#0f172a; }
+.ab-rdp .ab-available .rdp-day_button { background:#fff; border-color:#e2e8f0; color:#0f172a; }
+
+
         .ab-rdp .rdp-months,
         .ab-rdp .rdp-month {
           width: 100%;
@@ -361,24 +366,28 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
-                <DayPicker
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  month={month}
-                  onMonthChange={setMonth}
-                  weekStartsOn={1}
-                  disabled={disabledDays}
-                  showOutsideDays
-                  className="w-full"
-                  modifiers={{
-                    unavailable: (date) => dayClass(date) === "unavailable",
-                    partial: (date) => dayClass(date) === "partial",
-                    available: (date) => dayClass(date) === "available",
-                  }}
-                />
-              </div>
+<DayPicker
+  mode="single"
+  selected={selectedDate}
+  onSelect={setSelectedDate}
+  month={month}
+  onMonthChange={setMonth}
+  weekStartsOn={1}
+  disabled={disabledDays}
+  showOutsideDays
+  className="w-full"
+  modifiers={{
+    unavailable: (date) => dayClass(date) === "unavailable",
+    partial: (date) => dayClass(date) === "partial",
+    available: (date) => dayClass(date) === "available",
+  }}
+  modifiersClassNames={{
+    unavailable: "ab-unavailable",
+    partial: "ab-partial",
+    available: "ab-available",
+  }}
+/>
+
 
               {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
