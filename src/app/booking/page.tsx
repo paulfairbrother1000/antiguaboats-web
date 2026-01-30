@@ -173,110 +173,119 @@ export default function BookingPage() {
 
   return (
     <main className="bg-white text-slate-900">
-      {/* HARD RESET + CUSTOM RDP LAYOUT (fixes the “stacked pills” + merged weekday names) */}
-      <style jsx global>{`
-        /* Only affect this page's calendar instance */
-        .ab-rdp .rdp {
-          --ab-gap: 10px;
-          width: 100%;
-        }
+  {/* HARD RESET + CUSTOM RDP LAYOUT (fixes the “stacked pills” + merged weekday names) */}
+  <style jsx global>{`
+    /* HARD FORCE the table layout back on (global CSS was breaking it) */
+    .ab-rdp .rdp-table {
+      display: table !important;
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: var(--ab-gap);
+    }
 
-        .ab-rdp .rdp-months,
-        .ab-rdp .rdp-month {
-          width: 100%;
-        }
+    .ab-rdp .rdp-thead { display: table-header-group !important; }
+    .ab-rdp .rdp-tbody { display: table-row-group !important; }
+    .ab-rdp .rdp-head_row { display: table-row !important; }
+    .ab-rdp .rdp-row { display: table-row !important; }
+    .ab-rdp .rdp-head_cell,
+    .ab-rdp .rdp-cell { display: table-cell !important; }
 
-        .ab-rdp .rdp-caption {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 6px 10px 6px;
-        }
+    /* Only affect this page's calendar instance */
+    .ab-rdp .rdp {
+      --ab-gap: 10px;
+      width: 100%;
+    }
 
-        .ab-rdp .rdp-caption_label {
-          font-weight: 700;
-          font-size: 18px;
-          color: #0f172a; /* slate-900 */
-        }
+    .ab-rdp .rdp-months,
+    .ab-rdp .rdp-month {
+      width: 100%;
+    }
 
-        .ab-rdp .rdp-nav {
-          display: flex;
-          gap: 10px;
-        }
+    .ab-rdp .rdp-caption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px 10px 6px;
+    }
 
-        .ab-rdp .rdp-nav_button {
-          border: 1px solid #e2e8f0; /* slate-200 */
-          border-radius: 14px;
-          padding: 10px 12px;
-          background: #fff;
-        }
-        .ab-rdp .rdp-nav_button:hover {
-          background: #f8fafc; /* slate-50 */
-        }
+    .ab-rdp .rdp-caption_label {
+      font-weight: 700;
+      font-size: 18px;
+      color: #0f172a; /* slate-900 */
+    }
 
-        /* The critical part: force a real table grid with fixed columns */
-        .ab-rdp .rdp-table {
-          width: 100%;
-          table-layout: fixed;
-          border-collapse: separate;
-          border-spacing: var(--ab-gap);
-        }
+    .ab-rdp .rdp-nav {
+      display: flex;
+      gap: 10px;
+    }
 
-        .ab-rdp .rdp-head_cell {
-          text-align: center;
-          font-size: 12px;
-          font-weight: 700;
-          color: #64748b; /* slate-500 */
-          padding: 0;
-          height: 26px;
-          width: calc((100% - (6 * var(--ab-gap))) / 7);
-        }
+    .ab-rdp .rdp-nav_button {
+      border: 1px solid #e2e8f0; /* slate-200 */
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #fff;
+    }
 
-        .ab-rdp .rdp-cell {
-          padding: 0;
-          width: calc((100% - (6 * var(--ab-gap))) / 7);
-        }
+    .ab-rdp .rdp-nav_button:hover {
+      background: #f8fafc; /* slate-50 */
+    }
 
-        /* Day button fills the cell */
-        .ab-rdp .rdp-day {
-          width: 100%;
-          height: 54px;
-          border-radius: 18px;
-          border: 1px solid #e2e8f0; /* slate-200 */
-          background: #ffffff;
-          font-weight: 700;
-          color: #0f172a; /* slate-900 */
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-        }
+    .ab-rdp .rdp-head_cell {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b; /* slate-500 */
+      padding: 0;
+      height: 26px;
+      width: calc((100% - (6 * var(--ab-gap))) / 7);
+    }
 
-        .ab-rdp .rdp-day:hover {
-          background: #f8fafc; /* slate-50 */
-        }
+    .ab-rdp .rdp-cell {
+      padding: 0;
+      width: calc((100% - (6 * var(--ab-gap))) / 7);
+    }
 
-        .ab-rdp .rdp-day_outside {
-          color: #cbd5e1; /* slate-300 */
-        }
+    /* Day button fills the cell */
+    .ab-rdp .rdp-day {
+      width: 100%;
+      height: 54px;
+      border-radius: 18px;
+      border: 1px solid #e2e8f0; /* slate-200 */
+      background: #ffffff;
+      font-weight: 700;
+      color: #0f172a; /* slate-900 */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
 
-        .ab-rdp .rdp-day_disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
+    .ab-rdp .rdp-day:hover {
+      background: #f8fafc; /* slate-50 */
+    }
 
-        /* Selected overrides */
-        .ab-rdp .rdp-day_selected {
-          background: #0f172a; /* slate-900 */
-          border-color: #0f172a;
-          color: #ffffff;
-        }
+    .ab-rdp .rdp-day_outside {
+      color: #cbd5e1; /* slate-300 */
+    }
 
-        /* Today ring */
-        .ab-rdp .rdp-day_today {
-          box-shadow: 0 0 0 2px #cbd5e1 inset; /* slate-300 */
-        }
-      `}</style>
+    .ab-rdp .rdp-day_disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    /* Selected overrides */
+    .ab-rdp .rdp-day_selected {
+      background: #0f172a; /* slate-900 */
+      border-color: #0f172a;
+      color: #ffffff;
+    }
+
+    /* Today ring */
+    .ab-rdp .rdp-day_today {
+      box-shadow: 0 0 0 2px #cbd5e1 inset; /* slate-300 */
+    }
+  `}</style>
 
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
@@ -319,30 +328,24 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
-                <DayPicker
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  month={month}
-                  onMonthChange={setMonth}
-                  weekStartsOn={1}
-                  disabled={disabledDays}
-                  showOutsideDays
-                  modifiers={{
-                    unavailable: (date) => dayClass(date) === "unavailable",
-                    partial: (date) => dayClass(date) === "partial",
-                    available: (date) => dayClass(date) === "available",
-                  }}
-                  modifiersClassNames={{
-                    // Availability colour (applied to the day button)
-                    unavailable: "bg-slate-900 text-white border-slate-900",
-                    partial: "bg-slate-200 text-slate-900 border-slate-200",
-                    available: "bg-white text-slate-900 border-slate-200",
-                    selected: "bg-slate-900 text-white border-slate-900",
-                  }}
-                />
-              </div>
+           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
+  <DayPicker
+    mode="single"
+    selected={selectedDate}
+    onSelect={setSelectedDate}
+    month={month}
+    onMonthChange={setMonth}
+    weekStartsOn={1}
+    disabled={disabledDays}
+    showOutsideDays
+    modifiers={{
+      unavailable: (date) => dayClass(date) === "unavailable",
+      partial: (date) => dayClass(date) === "partial",
+      available: (date) => dayClass(date) === "available",
+    }}
+  />
+</div>
+
 
               {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
