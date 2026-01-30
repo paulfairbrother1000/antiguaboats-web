@@ -29,38 +29,12 @@ const SLOT_PRICE_CENTS: Record<Slot, number> = {
 const EXTRA_GUEST_CENTS = 100 * 100; // guests 7–8
 const NOBU_FUEL_CENTS = 250 * 100;
 
-/**
- * Map slots to your existing charter_types IDs (from your bookings table screenshot).
- * If these ever change, update them here.
- */
-const SLOT_CHARTER_TYPE_ID: Record<Slot, string> = {
-  AM: "6bfa7f8b-db88-40fb-a3f9-0ef295124a94",
-  FD: "0c8cbd74-8eb6-49eb-84cf-53edb8924860",
-  PM: "e7ef01de-cc2d-48f5-a028-3e880103b9fb5",
-  SS: "c069b2a8-abbd-4df4-916b-bfb880ecc279",
-};
-
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
 function money(cents: number) {
   return `$${(cents / 100).toFixed(0)}`;
-}
-
-/**
- * Use UTC times for consistency with your existing data (which shows +00:00).
- */
-function slotTimesUTC(slot: Slot) {
-  if (slot === "FD") return { sh: 10, sm: 0, eh: 17, em: 0 };
-  if (slot === "AM") return { sh: 10, sm: 0, eh: 13, em: 0 };
-  if (slot === "PM") return { sh: 14, sm: 0, eh: 17, em: 0 };
-  // SS
-  return { sh: 16, sm: 30, eh: 18, em: 30 };
-}
-
-function buildUtcDateTime(dateOnly: Date, hour: number, minute: number) {
-  return new Date(Date.UTC(dateOnly.getUTCFullYear(), dateOnly.getUTCMonth(), dateOnly.getUTCDate(), hour, minute, 0));
 }
 
 type DayAvail = {
@@ -71,7 +45,7 @@ type DayAvail = {
 };
 
 export default function BookingPage() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1 state
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -82,16 +56,8 @@ export default function BookingPage() {
   // Step 2 state
   const [comments, setComments] = useState<string>("");
 
-  // Step 3 state (lead passenger + terms)
-  const [leadName, setLeadName] = useState<string>("");
-  const [leadEmail, setLeadEmail] = useState<string>("");
-  const [leadPhone, setLeadPhone] = useState<string>("");
+  // Step 3 state
   const [acceptedTerms, setAcceptedTerms] = useState<boolean>(false);
-
-  // Payment / completion state
-  const [paying, setPaying] = useState<boolean>(false);
-  const [payError, setPayError] = useState<string>("");
-  const [confirmedBookingId, setConfirmedBookingId] = useState<string>("");
 
   // Calendar month state (Monday start)
   const [month, setMonth] = useState<Date>(new Date());
@@ -208,74 +174,36 @@ export default function BookingPage() {
     quote?.total_amount_cents ??
     (basePriceCents !== null ? basePriceCents + extrasCents : null);
 
-  const currency = quote?.currency ?? "USD";
-
-  const canPay =
-    !!selectedDate &&
-    !!selectedSlot &&
-    canContinue &&
-    !!totalCents &&
-    leadName.trim().length > 1 &&
-    leadEmail.trim().includes("@") &&
-    acceptedTerms &&
-    !paying;
-
-  async function handleMockPay() {
-    if (!selectedDate || !selectedSlot || !totalCents) return;
-
-    setPayError("");
-    setPaying(true);
-
-    try {
-      const { sh, sm, eh, em } = slotTimesUTC(selectedSlot);
-      const startAt = buildUtcDateTime(selectedDate, sh, sm);
-      const endAt = buildUtcDateTime(selectedDate, eh, em);
-
-      const res = await fetch("/api/bookings/mock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          charter_type_id: SLOT_CHARTER_TYPE_ID[selectedSlot],
-          start_at: startAt.toISOString(),
-          end_at: endAt.toISOString(),
-          status: "CONFIRMED",
-          customer_name: leadName.trim(),
-          customer_email: leadEmail.trim(),
-          customer_phone: leadPhone.trim() || null,
-          total_amount_cents: totalCents,
-          currency,
-          notes: comments?.trim() || null,
-          meta: {
-            slot: selectedSlot,
-            guests,
-            nobu: selectedSlot === "FD" ? !!nobu : false,
-            quote_total_amount_cents: quote?.total_amount_cents ?? null,
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Payment failed (mock).");
-      }
-
-      setConfirmedBookingId(data?.booking?.id || "");
-      setStep(4);
-    } catch (e: any) {
-      setPayError(e?.message || "Something went wrong.");
-    } finally {
-      setPaying(false);
-    }
-  }
+  // If user changes booking details after accepting terms, force a re-accept.
+  useEffect(() => {
+    if (step !== 3) return;
+    setAcceptedTerms(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, selectedSlot, guests, nobu]);
 
   return (
     <main className="bg-white text-slate-900">
-      {/* ✅ Known-good calendar styling (table layout forced; scoped to .ab-rdp wrapper) */}
+      {/* RDP: self-contained calendar styling (GRID-based, avoids global CSS table resets) */}
       <style jsx global>{`
-        /* Only affect this page's calendar instance */
         .ab-rdp .rdp {
           --ab-gap: 10px;
           width: 100%;
+        }
+
+        .ab-rdp .ab-unavailable .rdp-day_button {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #fff;
+        }
+        .ab-rdp .ab-partial .rdp-day_button {
+          background: #e2e8f0;
+          border-color: #e2e8f0;
+          color: #0f172a;
+        }
+        .ab-rdp .ab-available .rdp-day_button {
+          background: #fff;
+          border-color: #e2e8f0;
+          color: #0f172a;
         }
 
         .ab-rdp .rdp-months,
@@ -293,7 +221,7 @@ export default function BookingPage() {
         .ab-rdp .rdp-caption_label {
           font-weight: 700;
           font-size: 18px;
-          color: #0f172a; /* slate-900 */
+          color: #0f172a;
         }
 
         .ab-rdp .rdp-nav {
@@ -302,129 +230,116 @@ export default function BookingPage() {
         }
 
         .ab-rdp .rdp-nav_button {
-          border: 1px solid #e2e8f0; /* slate-200 */
+          border: 1px solid #e2e8f0;
           border-radius: 14px;
           padding: 10px 12px;
           background: #fff;
         }
         .ab-rdp .rdp-nav_button:hover {
-          background: #f8fafc; /* slate-50 */
+          background: #f8fafc;
         }
 
-        /* HARD FORCE table layout back on (protects against global CSS) */
-        .ab-rdp .rdp-table {
-          display: table !important;
-          width: 100%;
-          table-layout: fixed;
-          border-collapse: separate;
-          border-spacing: var(--ab-gap);
-        }
-        .ab-rdp .rdp-thead {
-          display: table-header-group !important;
-        }
-        .ab-rdp .rdp-tbody {
-          display: table-row-group !important;
-        }
-        .ab-rdp .rdp-head_row {
-          display: table-row !important;
-        }
-        .ab-rdp .rdp-row {
-          display: table-row !important;
-        }
-        .ab-rdp .rdp-head_cell,
-        .ab-rdp .rdp-cell {
-          display: table-cell !important;
+        /* === Force 7-col GRID for weekday row + weeks === */
+        .ab-rdp .rdp-month_grid {
+          display: grid;
+          gap: var(--ab-gap);
         }
 
-        .ab-rdp .rdp-head_cell {
+        .ab-rdp .rdp-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: var(--ab-gap);
+        }
+
+        .ab-rdp .rdp-weekday {
+          height: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           text-align: center;
           font-size: 12px;
           font-weight: 700;
-          color: #64748b; /* slate-500 */
-          padding: 0;
-          height: 26px;
-          width: calc((100% - (6 * var(--ab-gap))) / 7);
+          color: #64748b;
           white-space: nowrap;
-        }
-
-        .ab-rdp .rdp-cell {
           padding: 0;
-          width: calc((100% - (6 * var(--ab-gap))) / 7);
         }
 
-        /* Day button fills the cell (supports both class variants across RDP versions) */
-        .ab-rdp .rdp-day,
+        .ab-rdp .rdp-weeks {
+          display: grid;
+          gap: var(--ab-gap);
+        }
+
+        .ab-rdp .rdp-week {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: var(--ab-gap);
+        }
+
+        .ab-rdp .rdp-day {
+          width: 100%;
+        }
+
+        /* Inner button (many RDP versions) */
         .ab-rdp .rdp-day_button {
           width: 100%;
           height: 54px;
           border-radius: 18px;
-          border: 1px solid #e2e8f0; /* slate-200 */
+          border: 1px solid #e2e8f0;
           background: #ffffff;
           font-weight: 700;
-          color: #0f172a; /* slate-900 */
+          color: #0f172a;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
         }
 
-        .ab-rdp .rdp-day:hover,
         .ab-rdp .rdp-day_button:hover {
-          background: #f8fafc; /* slate-50 */
+          background: #f8fafc;
         }
 
-        .ab-rdp .rdp-day_outside,
         .ab-rdp .rdp-day_outside .rdp-day_button {
-          color: #cbd5e1; /* slate-300 */
+          color: #cbd5e1;
         }
 
-        .ab-rdp .rdp-day_disabled,
         .ab-rdp .rdp-day_disabled .rdp-day_button {
           opacity: 0.7;
           cursor: not-allowed;
         }
 
-        .ab-rdp .rdp-day_selected,
-        .ab-rdp .rdp-day_selected .rdp-day_button {
-          background: #0f172a; /* slate-900 */
-          border-color: #0f172a;
-          color: #ffffff;
-        }
-
-        .ab-rdp .rdp-day_today,
         .ab-rdp .rdp-day_today .rdp-day_button {
-          box-shadow: 0 0 0 2px #cbd5e1 inset; /* slate-300 */
+          box-shadow: 0 0 0 2px #cbd5e1 inset;
         }
 
-        /* Availability shading (applies via modifiersClassNames) */
-        .ab-rdp .ab-unavailable .rdp-day,
-        .ab-rdp .ab-unavailable .rdp-day_button {
+        .ab-rdp .rdp-day_selected .rdp-day_button {
           background: #0f172a;
           border-color: #0f172a;
           color: #ffffff;
         }
 
-        .ab-rdp .ab-partial .rdp-day,
-        .ab-rdp .ab-partial .rdp-day_button {
+        /* Availability shading */
+        .ab-rdp .rdp-day_unavailable .rdp-day_button {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #ffffff;
+        }
+
+        .ab-rdp .rdp-day_partial .rdp-day_button {
           background: #e2e8f0;
           border-color: #e2e8f0;
           color: #0f172a;
         }
 
-        .ab-rdp .ab-available .rdp-day,
-        .ab-rdp .ab-available .rdp-day_button {
+        .ab-rdp .rdp-day_available .rdp-day_button {
           background: #ffffff;
           border-color: #e2e8f0;
           color: #0f172a;
         }
 
-        /* Selected must always win */
-        .ab-rdp .rdp-day_selected.ab-unavailable .rdp-day,
-        .ab-rdp .rdp-day_selected.ab-partial .rdp-day,
-        .ab-rdp .rdp-day_selected.ab-available .rdp-day,
-        .ab-rdp .rdp-day_selected.ab-unavailable .rdp-day_button,
-        .ab-rdp .rdp-day_selected.ab-partial .rdp-day_button,
-        .ab-rdp .rdp-day_selected.ab-available .rdp-day_button {
+        /* Selected should always win */
+        .ab-rdp .rdp-day_selected.rdp-day_partial .rdp-day_button,
+        .ab-rdp .rdp-day_selected.rdp-day_unavailable .rdp-day_button,
+        .ab-rdp .rdp-day_selected.rdp-day_available .rdp-day_button {
           background: #0f172a;
           border-color: #0f172a;
           color: #ffffff;
@@ -482,6 +397,7 @@ export default function BookingPage() {
                   weekStartsOn={1}
                   disabled={disabledDays}
                   showOutsideDays
+                  className="w-full"
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
@@ -593,7 +509,9 @@ export default function BookingPage() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Nobu trip</div>
-                      <div className="text-sm text-slate-600">{money(NOBU_FUEL_CENTS)} fuel surcharge</div>
+                      <div className="text-sm text-slate-600">
+                        {money(NOBU_FUEL_CENTS)} fuel surcharge
+                      </div>
                     </div>
                     <input
                       type="checkbox"
@@ -605,7 +523,9 @@ export default function BookingPage() {
                     />
                   </div>
                   {selectedSlot !== "FD" && (
-                    <div className="mt-2 text-xs text-slate-500">Available on Full Day Charter only.</div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      Available on Full Day Charter only.
+                    </div>
                   )}
                 </div>
               </div>
@@ -631,7 +551,9 @@ export default function BookingPage() {
 
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Base price</span>
-                  <span className="font-semibold">{basePriceCents !== null ? money(basePriceCents) : "—"}</span>
+                  <span className="font-semibold">
+                    {basePriceCents !== null ? money(basePriceCents) : "—"}
+                  </span>
                 </div>
 
                 <div className="flex justify-between gap-3">
@@ -654,7 +576,9 @@ export default function BookingPage() {
               {selectedSlot && !loadingQuote && (
                 <div className="flex justify-between gap-3">
                   <span className="text-base font-semibold">Total</span>
-                  <span className="text-base font-semibold">{totalCents !== null ? money(totalCents) : "—"}</span>
+                  <span className="text-base font-semibold">
+                    {totalCents !== null ? money(totalCents) : "—"}
+                  </span>
                 </div>
               )}
 
@@ -726,43 +650,10 @@ export default function BookingPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 3 — make payment</h2>
             <p className="mt-2 text-slate-600">
-              Next we’ll collect lead passenger details and take payment (mocked for now).
+              Next we’ll collect lead passenger details and take payment (Stripe).
             </p>
 
-            {/* Lead passenger details */}
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="text-sm font-semibold text-slate-900">Full name</label>
-                <input
-                  value={leadName}
-                  onChange={(e) => setLeadName(e.target.value)}
-                  placeholder="e.g. Paul Fairbrother"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-slate-900">Email</label>
-                <input
-                  value={leadEmail}
-                  onChange={(e) => setLeadEmail(e.target.value)}
-                  placeholder="e.g. you@example.com"
-                  type="email"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-slate-900">Phone (optional)</label>
-                <input
-                  value={leadPhone}
-                  onChange={(e) => setLeadPhone(e.target.value)}
-                  placeholder="e.g. +1 268 555 0100"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-                />
-              </div>
-            </div>
-
-            {/* What we’ll submit */}
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
               <div className="font-semibold text-slate-900">What we’ll submit</div>
               <div className="mt-2 space-y-1">
                 <div>
@@ -781,35 +672,46 @@ export default function BookingPage() {
                   <span className="text-slate-600">Comments:</span>{" "}
                   <span className="font-semibold">{comments?.trim() ? "Included" : "—"}</span>
                 </div>
-                <div className="pt-2">
-                  <span className="text-slate-600">Total:</span>{" "}
-                  <span className="font-semibold">{totalCents ? money(totalCents) : "—"}</span>
-                </div>
+              </div>
+
+              <div className="my-4 border-t border-slate-200" />
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-slate-600">Total cost</span>
+                <span className="text-base font-semibold">
+                  {totalCents !== null ? money(totalCents) : "—"}
+                </span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                Total is calculated from your quote (when available), otherwise uses the displayed pricing and extras.
               </div>
             </div>
 
-            {/* Terms */}
-            <div className="mt-4 flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-              <input
-                type="checkbox"
-                className="mt-1 h-5 w-5"
-                checked={acceptedTerms}
-                onChange={(e) => setAcceptedTerms(e.target.checked)}
-              />
-              <div className="text-sm text-slate-700">
-                I accept the{" "}
-                <Link href="/terms" className="font-semibold underline underline-offset-2">
-                  Terms & Conditions
-                </Link>{" "}
-                (mock).
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-5 w-5"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                />
+                <span className="text-sm text-slate-700">
+                  I agree to the{" "}
+                  <Link
+                    href="/terms"
+                    className="font-semibold underline underline-offset-2"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Terms &amp; Conditions
+                  </Link>
+                  .
+                </span>
+              </label>
+              <div className="mt-2 text-xs text-slate-500">
+                You must accept the Terms &amp; Conditions before proceeding to payment.
               </div>
             </div>
-
-            {payError && (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                {payError}
-              </div>
-            )}
 
             <div className="mt-6 flex gap-3">
               <button
@@ -821,74 +723,15 @@ export default function BookingPage() {
               </button>
               <button
                 type="button"
-                onClick={handleMockPay}
-                disabled={!canPay}
+                disabled={!acceptedTerms || totalCents === null}
                 className={[
-                  "rounded-2xl px-5 py-3 font-semibold text-white transition",
-                  canPay ? "bg-slate-900 hover:opacity-95" : "bg-slate-300 cursor-not-allowed",
+                  "rounded-2xl px-5 py-3 font-semibold transition",
+                  acceptedTerms && totalCents !== null
+                    ? "bg-slate-900 text-white hover:opacity-95"
+                    : "bg-slate-200 text-slate-500 cursor-not-allowed",
                 ].join(" ")}
               >
-                {paying ? "Processing…" : `Pay now (mock)`}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-semibold">Booking confirmed</h2>
-            <p className="mt-2 text-slate-600">
-              Thanks — your booking has been recorded.
-            </p>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
-              <div className="font-semibold text-slate-900">Confirmation</div>
-              <div className="mt-2 space-y-1">
-                <div>
-                  <span className="text-slate-600">Booking ID:</span>{" "}
-                  <span className="font-semibold">{confirmedBookingId || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">Date:</span>{" "}
-                  <span className="font-semibold">{selectedDate ? isoDate(selectedDate) : "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">Charter:</span>{" "}
-                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">Total:</span>{" "}
-                  <span className="font-semibold">{totalCents ? money(totalCents) : "—"}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <Link
-                href="/"
-                className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
-              >
-                Back to home
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  // quick reset for testing
-                  setStep(1);
-                  setConfirmedBookingId("");
-                  setLeadName("");
-                  setLeadEmail("");
-                  setLeadPhone("");
-                  setAcceptedTerms(false);
-                  setComments("");
-                  setSelectedDate(undefined);
-                  setSelectedSlot(undefined);
-                  setGuests(6);
-                  setNobu(false);
-                }}
-                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-semibold hover:bg-slate-50"
-              >
-                Make another booking
+                Pay now (mock)
               </button>
             </div>
           </div>
