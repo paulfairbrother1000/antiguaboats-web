@@ -1,10 +1,37 @@
 import CharterTemplate from "@/components/CharterTemplate";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-export default function HalfDayCharterPage() {
+async function getCharterPriceUSD(charterSlug: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data, error } = await supabase
+    .from("charter_types")
+    .select("base_price_cents, currency")
+    .eq("slug", charterSlug)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return data.base_price_cents / 100;
+}
+
+export default async function HalfDayCharterPage() {
   const title = "½ Day Charter";
-  const subtitle = "10:00–13:00 or 14:00–17:00 • Quick island escape";
+  const charterSlug = "half-day";
+
+  const priceUSD = await getCharterPriceUSD(charterSlug);
+
+  const hoursLine = "10:00 – 13:00 or 14:00 – 17:00 – 3 hours";
+  const tagline =
+    "Quick island escape in the magnificent Antiguan waters, beaches and coves.";
 
   const body = [
     "Short on time but still want the “wow” factor? A half-day charter is the perfect way to escape the crowds and spend a few glorious hours on the water.",
@@ -20,15 +47,17 @@ export default function HalfDayCharterPage() {
 
   // If you don't have a Half Day video yet, keep this undefined (video section will not render)
   const youtubeUrl = "https://www.youtube.com/live/pIfhcodEbls";
-;
 
   return (
     <CharterTemplate
       title={title}
-      subtitle={subtitle}
+      subtitle="" // unused when structured header is provided
       body={body}
       folder={folder}
       youtubeUrl={youtubeUrl}
+      priceUSD={priceUSD}
+      hoursLine={hoursLine}
+      tagline={tagline}
     />
   );
 }
