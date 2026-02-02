@@ -181,7 +181,7 @@ export default function PaceShuttleTiles({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialData);
 
-  // NEW: if SSR didn't provide data, show last-known cached data instantly
+  // If SSR didn't provide data, show last-known cached data instantly
   useEffect(() => {
     if (initialData) return;
     try {
@@ -206,16 +206,10 @@ export default function PaceShuttleTiles({
           setLoading(!data);
         }
 
-        const controller = new AbortController();
-        const timeoutMs = 12000; // don't hang indefinitely
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-        const res = await fetch("/api/shuttle-routes", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        clearTimeout(timer);
+        // IMPORTANT: do not abort this fetch.
+        // Your /api/shuttle-routes can legitimately take ~20s today.
+        // Aborting here causes "signal is aborted without reason" and prevents any data arriving.
+        const res = await fetch("/api/shuttle-routes", { cache: "no-store" });
 
         if (!res.ok) {
           const text = await res.text();
@@ -231,7 +225,7 @@ export default function PaceShuttleTiles({
         }
       } catch (e: any) {
         if (!cancelled) {
-          // If we already have some data (SSR or cache), keep showing it; just surface the error quietly.
+          // If we already have some data (SSR or cache), keep showing it; only surface error if we have nothing
           if (!data) setError(e?.message ?? "Failed to load shuttle routes");
         }
       } finally {
@@ -243,7 +237,6 @@ export default function PaceShuttleTiles({
     return () => {
       cancelled = true;
     };
-    // Intentionally include `data` so that if cache populated `data`, we treat refresh as background.
   }, [initialData, data]);
 
   const tiles = useMemo(() => data?.tiles ?? [], [data]);
