@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type ShuttleTile = {
+export type ShuttleTile = {
   route_id: string;
   country?: string;
   vehicle_type?: string;
@@ -31,7 +31,7 @@ type ShuttleTile = {
   prices?: any[];
 };
 
-type ShuttleRoutesResponse = {
+export type ShuttleRoutesResponse = {
   source?: string;
   fetched_at?: string;
   tiles?: ShuttleTile[];
@@ -144,7 +144,11 @@ function deriveCountry(tiles: ShuttleTile[]): string | null {
   return "multiple countries";
 }
 
-export default function PaceShuttleTiles({ initialData }: { initialData?: ShuttleRoutesResponse | null }) {
+export default function PaceShuttleTiles({
+  initialData,
+}: {
+  initialData?: ShuttleRoutesResponse | null;
+}) {
   const [data, setData] = useState<ShuttleRoutesResponse | null>(initialData ?? null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialData);
@@ -194,10 +198,13 @@ export default function PaceShuttleTiles({ initialData }: { initialData?: Shuttl
   if (error) {
     return (
       <div className="rounded-3xl border bg-white p-6">
-        <div className="text-sm font-semibold text-slate-900">Shuttle routes are not available yet.</div>
+        <div className="text-sm font-semibold text-slate-900">
+          Shuttle routes are not available yet.
+        </div>
         <div className="mt-2 text-sm text-slate-600">{error}</div>
         <div className="mt-4 text-sm text-slate-500">
-          (Server proxy is <code className="rounded bg-slate-100 px-1 py-0.5">/api/shuttle-routes</code>.)
+          (Server proxy is{" "}
+          <code className="rounded bg-slate-100 px-1 py-0.5">/api/shuttle-routes</code>.)
         </div>
       </div>
     );
@@ -206,7 +213,9 @@ export default function PaceShuttleTiles({ initialData }: { initialData?: Shuttl
   if (!tiles.length) {
     return (
       <div className="rounded-3xl border bg-white p-6">
-        <div className="text-sm font-semibold text-slate-900">No shuttle routes available right now.</div>
+        <div className="text-sm font-semibold text-slate-900">
+          No shuttle routes available right now.
+        </div>
         <div className="mt-2 text-sm text-slate-600">Please check back soon.</div>
       </div>
     );

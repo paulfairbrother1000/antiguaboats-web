@@ -1,16 +1,7 @@
 import Link from "next/link";
-import PaceShuttleTiles from "@/components/PaceShuttleTiles";
+import PaceShuttleTiles, { type ShuttleRoutesResponse } from "@/components/PaceShuttleTiles";
 
 export const dynamic = "force-dynamic";
-
-type ShuttleTile = {
-  country?: string;
-  vehicle_type?: string;
-};
-
-type ShuttleRoutesResponse = {
-  tiles?: ShuttleTile[];
-};
 
 function deriveMeta(data: ShuttleRoutesResponse | null | undefined) {
   const first = data?.tiles?.[0];
