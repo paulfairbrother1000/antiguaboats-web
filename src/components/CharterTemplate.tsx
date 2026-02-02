@@ -75,7 +75,9 @@ export default function CharterTemplate({
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-slate-500">Charters</div>
-          <h1 className="mt-1 text-4xl font-black tracking-tight text-slate-900">{title}</h1>
+          <h1 className="mt-1 text-4xl font-black tracking-tight text-slate-900">
+            {title}
+          </h1>
         </div>
 
         <Link
@@ -98,7 +100,7 @@ export default function CharterTemplate({
           />
           <div className="absolute inset-0 bg-black/35" />
 
-          {/* Title + subtitle on hero */}
+          {/* Title + structured header on hero */}
           <div className="absolute inset-0 flex items-end">
             <div className="p-6 md:p-10">
               <div className="text-3xl font-black tracking-tight text-white md:text-5xl">
@@ -106,9 +108,9 @@ export default function CharterTemplate({
               </div>
 
               {showStructuredHeader ? (
-                <div className="mt-3 space-y-1 text-white/90 md:text-lg">
+                <div className="mt-2 space-y-1 text-white/90 md:text-lg">
                   {priceUSD !== null ? (
-                    <div className="font-semibold">
+                    <div className="text-3xl font-black tracking-tight text-white md:text-5xl">
                       ${Number(priceUSD).toLocaleString()}
                     </div>
                   ) : null}
@@ -164,7 +166,7 @@ export default function CharterTemplate({
         </section>
       )}
 
-      {/* Footer buttons (below YouTube) */}
+      {/* Footer buttons */}
       <div className="mt-6 flex justify-center gap-3">
         <Link
           href="/booking"
