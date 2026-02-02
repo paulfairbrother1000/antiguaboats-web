@@ -11,30 +11,28 @@ async function getCharterPriceUSD(charterSlug: string) {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // NOTE:
-  // Update table/column names here if yours differ.
-  // Expected shape: table "charter_prices" with columns: slug (text), price_usd (numeric)
   const { data, error } = await supabase
-    .from("charter_prices")
-    .select("price_usd")
+    .from("charter_types")
+    .select("base_price_cents, currency")
     .eq("slug", charterSlug)
+    .eq("active", true)
     .maybeSingle();
 
-  if (error) return null;
-  if (!data?.price_usd && data?.price_usd !== 0) return null;
+  if (error || !data) return null;
 
-  return Number(data.price_usd);
+  // Prices are stored in cents
+  return data.base_price_cents / 100;
 }
 
 export default async function FullDayCharterPage() {
   const title = "Full Day Charter";
-
   const charterSlug = "day";
+
   const priceUSD = await getCharterPriceUSD(charterSlug);
 
   const hoursLine = "10:00 – 17:00 – 7 hours";
   const tagline =
-    "Full day of adventure in the  magnificent Antiguan waters, beaches and coves.";
+    "Full day of adventure in the magnificent Antiguan waters, beaches and coves.";
 
   const body = [
     "A full day charter is the ultimate way to experience Antigua’s coastline — unhurried, flexible, and designed around what you love most: swimming, exploring, relaxing, or a bit of everything.",
@@ -42,7 +40,9 @@ export default async function FullDayCharterPage() {
     "Expect a comfortable, safe ride with an attentive crew who will take care of the details, so you can focus on the sun, the sea and the scenery. It’s a day made for memories.",
   ];
 
-  // Put images here: /public/charters/fullday/hero.jpg, img1.jpg ... img4.jpg
+  // Images live here:
+  // /public/charters/fullday/hero.jpg
+  // /public/charters/fullday/img1.jpg ... img4.jpg
   const folder = "/charters/fullday";
 
   // YouTube (live link supported)
@@ -51,7 +51,7 @@ export default async function FullDayCharterPage() {
   return (
     <CharterTemplate
       title={title}
-      subtitle="" // kept for backwards-compat; not used when hoursLine/tagline/priceUSD provided
+      subtitle="" // unused when structured header is provided
       body={body}
       folder={folder}
       youtubeUrl={youtubeUrl}
