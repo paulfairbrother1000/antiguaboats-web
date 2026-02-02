@@ -76,13 +76,6 @@ function pickCheapestFromPace(t: ShuttleTile): { major?: number; currency?: stri
   const major = t?.cheapest?.display_major_rounded_up;
   const currency = t?.cheapest?.currency;
 
-  // ATTAINABILITY RULE:
-  // If Pace tells us the max qty at that price is 0 (or <=0), do not advertise it.
-  const maxQty = t?.cheapest?.max_qty_at_price;
-  if (typeof maxQty === "number" && maxQty <= 0) {
-    return {};
-  }
-
   if (typeof major === "number") {
     return { major, currency: typeof currency === "string" ? currency : "GBP" };
   }
@@ -144,21 +137,18 @@ function deriveCountry(tiles: ShuttleTile[]): string | null {
   return "multiple countries";
 }
 
-export default function PaceShuttleTiles({ initialData }: { initialData?: ShuttleRoutesResponse | null }) {
-  const [data, setData] = useState<ShuttleRoutesResponse | null>(initialData ?? null);
+export default function PaceShuttleTiles() {
+  const [data, setData] = useState<ShuttleRoutesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!initialData);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
       try {
-        // If we already have initial data, render immediately and refresh in background
-        if (!cancelled) {
-          setError(null);
-          setLoading(!initialData);
-        }
+        setLoading(true);
+        setError(null);
 
         const res = await fetch("/api/shuttle-routes", { cache: "no-store" });
 
@@ -184,7 +174,7 @@ export default function PaceShuttleTiles({ initialData }: { initialData?: Shuttl
     return () => {
       cancelled = true;
     };
-  }, [initialData]);
+  }, []);
 
   const tiles = useMemo(() => data?.tiles ?? [], [data]);
   const country = useMemo(() => deriveCountry(tiles), [tiles]);
@@ -226,7 +216,8 @@ export default function PaceShuttleTiles({ initialData }: { initialData?: Shuttl
           const cheapest = pickCheapestFromPace(t);
           const fallback = pickLowestPriceFallback(t);
 
-          const priceMajor = typeof cheapest.major === "number" ? cheapest.major : fallback.major;
+          const priceMajor =
+            typeof cheapest.major === "number" ? cheapest.major : fallback.major;
 
           const priceCurrency =
             typeof cheapest.major === "number" ? cheapest.currency : fallback.currency;

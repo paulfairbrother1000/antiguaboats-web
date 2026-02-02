@@ -67,22 +67,7 @@ export default async function RestaurantShuttlePage() {
       process.env.NEXT_PUBLIC_SITE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-    // IMPORTANT PERFORMANCE FIX:
-    // - We only need this for light meta (country/vehicleType) and for initial tiles data.
-    // - Do NOT allow this to block the whole page for ~20s.
-    // - Use a short abort timeout + small revalidate to keep responses fast.
-    const controller = new AbortController();
-    const timeoutMs = 1500; // keep page fast even if upstream is slow
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    const res = await fetch(`${base}/api/shuttle-routes`, {
-      signal: controller.signal,
-      // Allow platform caching (API should still enforce correctness).
-      // We only "hint" caching here to avoid blocking SSR.
-      next: { revalidate: 10 },
-    });
-
-    clearTimeout(timer);
+    const res = await fetch(`${base}/api/shuttle-routes`, { cache: "no-store" });
 
     if (res.ok) {
       metaData = (await res.json()) as ShuttleRoutesResponse;
@@ -199,7 +184,7 @@ export default async function RestaurantShuttlePage() {
 
       {/* Routes section (keep API tile component exactly as-is) */}
       <section className="mt-8">
-        <PaceShuttleTiles initialData={metaData} />
+        <PaceShuttleTiles />
       </section>
 
       {/* YouTube (full width like the other charter pages) */}
