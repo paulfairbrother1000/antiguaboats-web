@@ -130,7 +130,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center rounded-xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-white"
+              className="inline-flex items-center rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700"
             >
               Contact us
             </Link>
