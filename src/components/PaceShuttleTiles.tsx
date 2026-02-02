@@ -144,6 +144,34 @@ function deriveCountry(tiles: ShuttleTile[]): string | null {
   return "multiple countries";
 }
 
+const LS_KEY = "pace_shuttle_routes_cache_v1";
+
+function readLocalCache(): ShuttleRoutesResponse | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { saved_at?: number; data?: ShuttleRoutesResponse };
+    if (!parsed?.data) return null;
+
+    // Optional TTL: keep cached content for up to 10 minutes.
+    const savedAt = typeof parsed.saved_at === "number" ? parsed.saved_at : 0;
+    const ttlMs = 10 * 60 * 1000;
+    if (savedAt && Date.now() - savedAt > ttlMs) return null;
+
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalCache(data: ShuttleRoutesResponse) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ saved_at: Date.now(), data }));
+  } catch {
+    // ignore
+  }
+}
+
 export default function PaceShuttleTiles({
   initialData,
 }: {
@@ -153,18 +181,41 @@ export default function PaceShuttleTiles({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialData);
 
+  // NEW: if SSR didn't provide data, show last-known cached data instantly
+  useEffect(() => {
+    if (initialData) return;
+    try {
+      const cached = readLocalCache();
+      if (cached?.tiles?.length) {
+        setData(cached);
+        setLoading(false);
+      }
+    } catch {
+      // ignore
+    }
+  }, [initialData]);
+
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
       try {
-        // If we already have initial data, render immediately and refresh in background
+        // If we already have initial data or local cached data, render immediately and refresh in background
         if (!cancelled) {
           setError(null);
-          setLoading(!initialData);
+          setLoading(!data);
         }
 
-        const res = await fetch("/api/shuttle-routes", { cache: "no-store" });
+        const controller = new AbortController();
+        const timeoutMs = 12000; // don't hang indefinitely
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        const res = await fetch("/api/shuttle-routes", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        clearTimeout(timer);
 
         if (!res.ok) {
           const text = await res.text();
@@ -176,9 +227,13 @@ export default function PaceShuttleTiles({
         if (!cancelled) {
           if (json?.error) throw new Error(json.error);
           setData(json);
+          writeLocalCache(json);
         }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "Failed to load shuttle routes");
+        if (!cancelled) {
+          // If we already have some data (SSR or cache), keep showing it; just surface the error quietly.
+          if (!data) setError(e?.message ?? "Failed to load shuttle routes");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -188,7 +243,8 @@ export default function PaceShuttleTiles({
     return () => {
       cancelled = true;
     };
-  }, [initialData]);
+    // Intentionally include `data` so that if cache populated `data`, we treat refresh as background.
+  }, [initialData, data]);
 
   const tiles = useMemo(() => data?.tiles ?? [], [data]);
   const country = useMemo(() => deriveCountry(tiles), [tiles]);
