@@ -1,10 +1,37 @@
 import CharterTemplate from "@/components/CharterTemplate";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-export default function SunsetCharterPage() {
+async function getCharterPriceUSD(charterSlug: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data, error } = await supabase
+    .from("charter_types")
+    .select("base_price_cents, currency")
+    .eq("slug", charterSlug)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return data.base_price_cents / 100;
+}
+
+export default async function SunsetCharterPage() {
   const title = "Sunset Cruise";
-  const subtitle = "16:30–18:30 • Golden hour magic";
+  const charterSlug = "sunset";
+
+  const priceUSD = await getCharterPriceUSD(charterSlug);
+
+  const hoursLine = "16:30 – 18:30 – 2 hours";
+  const tagline =
+    "Golden hour magic on the magnificent Antiguan waters, beaches and coves.";
 
   const body = [
     "There are few moments more special than being out on the water as the Caribbean sun begins to set. A sunset cruise is all about slowing down, soaking up the atmosphere, and enjoying Antigua at its most beautiful.",
@@ -23,10 +50,13 @@ export default function SunsetCharterPage() {
   return (
     <CharterTemplate
       title={title}
-      subtitle={subtitle}
+      subtitle="" // unused when structured header is provided
       body={body}
       folder={folder}
       youtubeUrl={youtubeUrl}
+      priceUSD={priceUSD}
+      hoursLine={hoursLine}
+      tagline={tagline}
     />
   );
 }
