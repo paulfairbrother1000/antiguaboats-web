@@ -20,6 +20,11 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
               <div className="absolute inset-0 flex items-center p-8 sm:p-12">
                 <div className="max-w-xl text-white">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-semibold text-slate-800">
+                    <span className="h-2 w-2 rounded-full bg-sky-600" />
+                    Premium speed boat charters • Jolly Harbour
+                  </div>
+
                   <h1 className="mt-6 text-5xl font-extrabold leading-tight sm:text-6xl">
                     Fast. Private.
                     <br />
@@ -33,7 +38,7 @@ export default function HomePage() {
 
                   <div className="mt-7 flex flex-wrap gap-3">
                     <Link
-                      href="/booking"
+                      href="/availability?charter=day"
                       className="inline-flex items-center rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700"
                     >
                       Check Availability
@@ -114,26 +119,10 @@ export default function HomePage() {
             <GalleryCarousel
               images={SILVER_LADY_PHOTOS}
               heightClass="h-[520px]"
-              caption=""
-              ctaHref=""
-              ctaLabel=""
+              caption="Silver Lady • Nor-Tech Performance"
+              ctaHref="/boat"
+              ctaLabel="Book Silver Lady"
             />
-          </div>
-
-          {/* Buttons under carousel */}
-          <div className="mt-6 flex justify-center gap-3">
-            <Link
-              href="/booking"
-              className="inline-flex items-center rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700"
-            >
-              Make booking
-            </Link>
-            <Link
-              href="/contact"
-              className="inline-flex items-center rounded-xl bg-white/90 px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-white"
-            >
-              Contact us
-            </Link>
           </div>
         </div>
       </section>
