@@ -391,7 +391,7 @@ export default function BookingPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/15 to-black/10" />
           <div className="relative flex h-full items-end px-6 pb-6 sm:px-10">
             <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Book Charter
+              Availability & Booking
             </h1>
           </div>
         </div>
