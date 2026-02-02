@@ -6,6 +6,11 @@ type CharterTemplateProps = {
   body: string[]; // paragraphs
   folder: string; // e.g. "/charters/fullday"
   youtubeUrl?: string; // full youtube url or youtu.be link
+
+  // Optional structured header lines (preferred)
+  priceUSD?: number | null;
+  hoursLine?: string;
+  tagline?: string;
 };
 
 function getYouTubeEmbedUrl(url?: string) {
@@ -52,12 +57,17 @@ export default function CharterTemplate({
   body,
   folder,
   youtubeUrl,
+  priceUSD = null,
+  hoursLine,
+  tagline,
 }: CharterTemplateProps) {
   const embed = getYouTubeEmbedUrl(youtubeUrl);
 
   // Standardised image paths
   const hero = `${folder}/hero.jpg`;
   const imgs = [1, 2, 3, 4].map((n) => `${folder}/img${n}.jpg`);
+
+  const showStructuredHeader = Boolean(hoursLine || tagline || priceUSD !== null);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -94,7 +104,20 @@ export default function CharterTemplate({
               <div className="text-3xl font-black tracking-tight text-white md:text-5xl">
                 {title}
               </div>
-              <div className="mt-2 text-white/90 md:text-lg">{subtitle}</div>
+
+              {showStructuredHeader ? (
+                <div className="mt-3 space-y-1 text-white/90 md:text-lg">
+                  {priceUSD !== null ? (
+                    <div className="font-semibold">
+                      ${Number(priceUSD).toLocaleString()}
+                    </div>
+                  ) : null}
+                  {hoursLine ? <div>{hoursLine}</div> : null}
+                  {tagline ? <div>{tagline}</div> : null}
+                </div>
+              ) : (
+                <div className="mt-2 text-white/90 md:text-lg">{subtitle}</div>
+              )}
             </div>
           </div>
         </div>
@@ -140,6 +163,22 @@ export default function CharterTemplate({
           </div>
         </section>
       )}
+
+      {/* Footer buttons (below YouTube) */}
+      <div className="mt-6 flex justify-center gap-3">
+        <Link
+          href="/booking"
+          className="inline-flex items-center rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700"
+        >
+          Make booking
+        </Link>
+        <Link
+          href="/contact"
+          className="inline-flex items-center rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700"
+        >
+          Contact us
+        </Link>
+      </div>
     </main>
   );
 }
