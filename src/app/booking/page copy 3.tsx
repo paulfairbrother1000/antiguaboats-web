@@ -29,16 +29,8 @@ const SLOT_PRICE_CENTS: Record<Slot, number> = {
 const EXTRA_GUEST_CENTS = 100 * 100; // guests 7–8
 const NOBU_FUEL_CENTS = 250 * 100;
 
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/**
- * IMPORTANT: use *local* date parts to avoid timezone day-shifts.
- * toISOString() converts to UTC which can show "yesterday" depending on TZ/DST.
- */
 function isoDate(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return d.toISOString().slice(0, 10);
 }
 
 function money(cents: number) {
@@ -51,23 +43,6 @@ type DayAvail = {
   available: Slot[];
   sold_out: boolean;
 };
-
-function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-function addMonths(d: Date, months: number) {
-  return new Date(d.getFullYear(), d.getMonth() + months, 1);
-}
-function addYears(d: Date, years: number) {
-  const x = new Date(d);
-  x.setFullYear(x.getFullYear() + years);
-  return x;
-}
-function endOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
 
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -104,22 +79,10 @@ export default function BookingPage() {
   }>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
 
-  // Booking window rules:
-  // - Show calendar up to end of the month, 12 months from current month
-  // - Allow booking up to 1 year from today (inclusive)
-  const today = useMemo(() => new Date(), []);
-  const maxVisibleMonth = useMemo(() => startOfMonth(addMonths(today, 12)), [today]); // e.g. Feb 2027 if today is Feb 2026
-  const maxBookDate = useMemo(() => endOfDay(addYears(today, 1)), [today]); // e.g. up to Feb 3rd 2027 inclusive
-  const minBookDate = useMemo(() => {
-    const x = new Date(today);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  }, [today]);
-
   // Fetch availability for visible month
   useEffect(() => {
-    const from = new Date(month.getFullYear(), month.getMonth(), 1);
-    const to = new Date(month.getFullYear(), month.getMonth() + 1, 0); // last day of month
+    const from = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0));
     const fromStr = isoDate(from);
     const toStr = isoDate(to);
 
@@ -154,24 +117,23 @@ export default function BookingPage() {
   // Unavailable days are unclickable (disabled)
   const disabledDays = useMemo(() => {
     return (date: Date) => {
-      // booking window guards
-      if (date < minBookDate) return true;
-      if (date > maxBookDate) return true;
-
-      // day availability guards (only if we have data)
       const day = availByDate.get(isoDate(date));
       if (!day) return false;
       return (day.available?.length ?? 0) === 0;
     };
-  }, [availByDate, minBookDate, maxBookDate]);
+  }, [availByDate]);
 
-  // When date changes, ALWAYS clear slot (no pre-select / no leading)
+  // When date changes, if slot no longer valid, clear it
   useEffect(() => {
     if (!selectedDate) return;
-    setSelectedSlot(undefined);
-    setNobu(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+    const day = availByDate.get(isoDate(selectedDate));
+    if (!day) return;
+
+    if (selectedSlot && !day.available.includes(selectedSlot)) {
+      setSelectedSlot(undefined);
+      setNobu(false);
+    }
+  }, [selectedDate, availByDate, selectedSlot]);
 
   // Quote whenever slot/guests/nobu changes (and slot is selected)
   useEffect(() => {
@@ -464,23 +426,13 @@ export default function BookingPage() {
                 <DayPicker
                   mode="single"
                   selected={selectedDate}
-                  onSelect={(d) => {
-                    setSelectedDate(d);
-                    // no pre-select / no leading
-                    setSelectedSlot(undefined);
-                    setNobu(false);
-                    setQuote(null);
-                    setPayError("");
-                    setBookingId("");
-                  }}
+                  onSelect={setSelectedDate}
                   month={month}
                   onMonthChange={setMonth}
                   weekStartsOn={1}
                   disabled={disabledDays}
                   showOutsideDays
                   className="w-full"
-                  toMonth={maxVisibleMonth}
-                  fromMonth={startOfMonth(today)}
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
@@ -496,17 +448,13 @@ export default function BookingPage() {
 
               {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between gap-3 text-sm font-semibold">
-                  <span>Selected date</span>
-                  <span>Available Charters</span>
-                </div>
-
+                <div className="text-sm font-semibold">Selected date</div>
                 <div className="mt-1 text-sm text-slate-700">
                   {selectedDate ? (
                     <>
                       <span className="font-semibold">{isoDate(selectedDate)}</span>
                       <span className="mx-2 text-slate-300">•</span>
-                      <span>{selectedAvailText || (loadingAvail ? "Loading…" : "—")}</span>
+                      <span>{selectedAvailText || "—"}</span>
                     </>
                   ) : (
                     <span className="text-slate-500">Select a date on the calendar.</span>
@@ -524,19 +472,7 @@ export default function BookingPage() {
                   </div>
                 )}
 
-                {selectedDate && loadingAvail && !selectedDayAvail && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                    Loading availability for this month…
-                  </div>
-                )}
-
-                {selectedDate && !loadingAvail && !selectedDayAvail && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                    Availability not loaded for this date yet.
-                  </div>
-                )}
-
-                {selectedDate && !!selectedDayAvail && (
+                {selectedDate && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
@@ -731,9 +667,7 @@ export default function BookingPage() {
                 placeholder="e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               />
-              <div className="mt-2 text-xs text-slate-500">
-                We’ll save this with your booking request.
-              </div>
+              <div className="mt-2 text-xs text-slate-500">We’ll save this with your booking request.</div>
             </div>
 
             <div className="mt-6 flex gap-3">
@@ -805,9 +739,7 @@ export default function BookingPage() {
                 </div>
                 <div>
                   <span className="text-slate-600">Charter:</span>{" "}
-                  <span className="font-semibold">
-                    {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
-                  </span>
+                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
                 </div>
                 <div>
                   <span className="text-slate-600">Guests:</span>{" "}
