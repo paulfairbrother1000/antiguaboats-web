@@ -125,7 +125,12 @@ export default async function RestaurantShuttlePage() {
                   >
                     Back to Charters
                   </Link>
-
+                  <Link
+                    href="/availability?charter=shuttle"
+                    className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+                  >
+                    Check Availability
+                  </Link>
                 </div>
               </div>
             </div>
