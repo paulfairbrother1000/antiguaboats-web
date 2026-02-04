@@ -94,8 +94,25 @@ export default async function RestaurantShuttlePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      {/* HERO (matches charter page look/feel) */}
-      <section className="mt-2 overflow-hidden rounded-3xl border bg-slate-100">
+      {/* PAGE HEADER (match other charter pages: button in top-right, level with title) */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-slate-500">Charters</div>
+          <h1 className="mt-1 text-4xl font-black tracking-tight text-slate-900 md:text-5xl">
+            {title}
+          </h1>
+        </div>
+
+        <Link
+          href="/charters"
+          className="shrink-0 rounded-2xl border px-5 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+        >
+          Back to Charters
+        </Link>
+      </div>
+
+      {/* HERO (image only, same look/feel as others) */}
+      <section className="mt-6 overflow-hidden rounded-3xl border bg-slate-100">
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -106,27 +123,11 @@ export default async function RestaurantShuttlePage() {
           />
           <div className="absolute inset-0 bg-black/35" />
 
-          {/* Overlay header + buttons */}
+          {/* Overlay text only (no button) */}
           <div className="absolute inset-0 flex items-end">
             <div className="w-full p-6 md:p-10">
-              <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-white/80">Charters</div>
-                  <div className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">
-                    {title}
-                  </div>
-                  <div className="mt-2 text-white/90 md:text-lg">{subtitle}</div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Link
-                    href="/charters"
-                    className="rounded-2xl border border-white/70 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
-                  >
-                    Back to Charters
-                  </Link>
-
-                </div>
+              <div className="max-w-3xl">
+                <div className="text-white/90 md:text-lg">{subtitle}</div>
               </div>
             </div>
           </div>
