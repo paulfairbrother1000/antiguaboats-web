@@ -138,24 +138,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* YOUTUBE VIDEO (inserted before "Choose your charter" section inside CharterTiles) */}
-      <section className="py-10">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-            <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
-              <iframe
-                className="absolute inset-0 h-full w-full"
-                src="https://www.youtube-nocookie.com/embed/pIfhcodEbls"
-                title="Antigua Boats video"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CHARTER TILES */}
       <CharterTiles />
     </main>
