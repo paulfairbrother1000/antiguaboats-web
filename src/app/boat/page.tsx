@@ -93,7 +93,7 @@ export default function BoatPage() {
           <div className="relative aspect-video w-full">
             <iframe
               className="absolute inset-0 h-full w-full"
-              src="https://youtu.be/xIzelCenvno"
+              src="https://youtu.be/mRkPSFT2DTE"
               title="Silver Lady video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
