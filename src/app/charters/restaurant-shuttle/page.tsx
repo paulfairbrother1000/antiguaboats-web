@@ -111,7 +111,7 @@ export default async function RestaurantShuttlePage() {
         </Link>
       </div>
 
-      {/* HERO (image only, same look/feel as others) */}
+      {/* HERO (now includes overlaid title like the other charter pages) */}
       <section className="mt-6 overflow-hidden rounded-3xl border bg-slate-100">
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -123,11 +123,15 @@ export default async function RestaurantShuttlePage() {
           />
           <div className="absolute inset-0 bg-black/35" />
 
-          {/* Overlay text only (no button) */}
+          {/* Overlay: title + subtitle (like other charter pages) */}
           <div className="absolute inset-0 flex items-end">
             <div className="w-full p-6 md:p-10">
-              <div className="max-w-3xl">
-                <div className="text-white/90 md:text-lg">{subtitle}</div>
+              <div className="max-w-4xl">
+                <div className="text-sm font-semibold text-white/80">Charters</div>
+                <div className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">
+                  {title}
+                </div>
+                <div className="mt-2 text-white/90 md:text-lg">{subtitle}</div>
               </div>
             </div>
           </div>
