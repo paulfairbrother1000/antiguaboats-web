@@ -85,22 +85,24 @@ export default function BoatPage() {
         </div>
       </section>
 
-      {/* VIDEO */}
-      <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
-        <h2 className="mb-5 text-2xl font-semibold tracking-tight text-slate-900">Video</h2>
+    {/* VIDEO */}
+<section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
+  <h2 className="mb-5 text-2xl font-semibold tracking-tight text-slate-900">Video</h2>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="relative aspect-video w-full">
-            <iframe
-              className="absolute inset-0 h-full w-full"
-              src="https://youtu.be/mRkPSFT2DTE"
-              title="Silver Lady video"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      </section>
+  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="relative aspect-video w-full">
+      <iframe
+        className="absolute inset-0 h-full w-full"
+        src="https://www.youtube-nocookie.com/embed/mRkPSFT2DTE"
+        title="Silver Lady video"
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    </div>
+  </div>
+</section>
+
 
       {/* ACTION BUTTONS */}
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
