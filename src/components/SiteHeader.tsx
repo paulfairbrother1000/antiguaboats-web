@@ -28,7 +28,7 @@ export default function SiteHeader() {
           <img
             src="/antigua-boats-logo.png"
             alt="Antigua Boats"
-            className="h-24 md:h-26 w-auto"   // ✅ bigger
+            className="h-34 md:h-36 w-auto"   // ✅ bigger
           />
         </Link>
 
