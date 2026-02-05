@@ -46,7 +46,7 @@ export default function SiteHeader() {
           ))}
 
           <Link
-            href="/availability?charter=day"
+            href="/booking"
             className="ml-2 inline-flex items-center rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
           >
             Book Now
