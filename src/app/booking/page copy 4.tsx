@@ -26,8 +26,8 @@ const SLOT_PRICE_CENTS: Record<Slot, number> = {
   SS: 800 * 100,
 };
 
-const EXTRA_GUEST_CENTS = 50 * 100; // guests 7–9
-const NOBU_FUEL_CENTS = 200 * 100;
+const EXTRA_GUEST_CENTS = 100 * 100; // guests 7–8
+const NOBU_FUEL_CENTS = 250 * 100;
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -593,12 +593,12 @@ export default function BookingPage() {
                     <button
                       type="button"
                       className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
-                      onClick={() => setGuests((g) => Math.min(9, g + 1))}
+                      onClick={() => setGuests((g) => Math.min(8, g + 1))}
                     >
                       +
                     </button>
                     <div className="text-sm text-slate-600">
-                      Includes up to 6. Guests 7–9: +$50 each.
+                      Includes up to 6. Guests 7–8: +$100 each.
                     </div>
                   </div>
                 </div>
@@ -731,7 +731,9 @@ export default function BookingPage() {
                 placeholder="e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               />
-              <div className="mt-2 text-xs text-slate-500">We’ll save this with your booking request.</div>
+              <div className="mt-2 text-xs text-slate-500">
+                We’ll save this with your booking request.
+              </div>
             </div>
 
             <div className="mt-6 flex gap-3">
@@ -803,7 +805,9 @@ export default function BookingPage() {
                 </div>
                 <div>
                   <span className="text-slate-600">Charter:</span>{" "}
-                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
+                  <span className="font-semibold">
+                    {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-600">Guests:</span>{" "}
