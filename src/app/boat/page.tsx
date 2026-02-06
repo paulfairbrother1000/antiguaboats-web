@@ -41,15 +41,13 @@ export default function BoatPage() {
 
       {/* OVERVIEW */}
       <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
-          <p className="text-lg leading-relaxed text-slate-700">
-            Meet <span className="font-semibold text-slate-900">Silver Lady</span> — a head-turning Nor-Tech 390 Sport
-            built for fast, smooth Caribbean runs and unforgettable days on the water. With serious power, a
-            confidence-inspiring ride, and plenty of space to relax between swim stops, she’s the perfect platform
-            for beach-hopping, sunset vibes, and arriving in style. We’ll keep the drinks cold, the tunes flowing,
-            and the day effortless — you just bring the good mood.
-          </p>
-        </div>
+        <p className="text-lg leading-relaxed text-slate-700">
+          Meet <span className="font-semibold text-slate-900">Silver Lady</span> — a head-turning Nor-Tech 390 Sport
+          built for fast, smooth Caribbean runs and unforgettable days on the water. With serious power, a
+          confidence-inspiring ride, and plenty of space to relax between swim stops, she’s the perfect platform
+          for beach-hopping, sunset vibes, and arriving in style. We’ll keep the drinks cold, the tunes flowing,
+          and the day effortless — you just bring the good mood.
+        </p>
       </section>
 
       {/* TECH SPECS */}
@@ -85,24 +83,23 @@ export default function BoatPage() {
         </div>
       </section>
 
-    {/* VIDEO */}
-<section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
-  <h2 className="mb-5 text-2xl font-semibold tracking-tight text-slate-900">Video</h2>
+      {/* VIDEO */}
+      <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
+        <h2 className="mb-5 text-2xl font-semibold tracking-tight text-slate-900">Video</h2>
 
-  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-    <div className="relative aspect-video w-full">
-      <iframe
-        className="absolute inset-0 h-full w-full"
-        src="https://www.youtube-nocookie.com/embed/mRkPSFT2DTE"
-        title="Silver Lady video"
-        frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-      />
-    </div>
-  </div>
-</section>
-
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="relative aspect-video w-full">
+            <iframe
+              className="absolute inset-0 h-full w-full"
+              src="https://www.youtube-nocookie.com/embed/mRkPSFT2DTE"
+              title="Silver Lady video"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      </section>
 
       {/* ACTION BUTTONS */}
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
