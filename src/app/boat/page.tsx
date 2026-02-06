@@ -7,8 +7,8 @@ const TECH_SPECS: { label: string; value: string }[] = [
   { label: "Model", value: "Nortech 390 Sport" },
   { label: "Year", value: "2024" },
   { label: "Power source", value: "Quad Mercury Racing 400R V-10" },
-  { label: "Top speed", value: "100 mph" },
-  { label: "Cruising speed", value: "35 mph" },
+  { label: "Top speed", value: "85 mph" },
+  { label: "Cruising speed", value: "40 mph" },
   { label: "Beverages", value: "Beer, wines, rum punch, water, sodas" },
 ];
 
