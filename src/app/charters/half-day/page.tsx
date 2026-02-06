@@ -29,7 +29,7 @@ export default async function HalfDayCharterPage() {
 
   const priceUSD = await getCharterPriceUSD(charterSlug);
 
-  const hoursLine = "10:00 – 13:00 or 14:00 – 17:00 – 3 hours";
+  const hoursLine = "09:30 – 13:00 or 14:00 – 17:30 – 3.5 hours";
   const tagline =
     "Quick island escape in the magnificent Antiguan waters, beaches and coves.";
 

@@ -16,7 +16,7 @@ const charterTiles: CharterTile[] = [
   },
   {
     title: "½ Day Charter",
-    desc: "10:00–13:00 or 14:00–17:00 • Quick island escape",
+    desc: "09:30–13:00 or 14:00–17:30 • Quick island escape",
     slug: "half-day",
     imageSrc: "/HalfDayCharter.jpeg",
   },
