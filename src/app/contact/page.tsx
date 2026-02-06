@@ -137,30 +137,39 @@ export default function ContactPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      {/* HERO */}
-      <section className="relative h-[42vh] min-h-[320px] w-full overflow-hidden">
-        {/* Swap this image to whatever hero you prefer */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: "url(/contact-hero.jpg)",
-          }}
-          aria-hidden
-        />
-        <div className="absolute inset-0 bg-black/45" aria-hidden />
+      {/* HERO (match other pages: centered tile inside max-w container) */}
+      <section className="py-10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="overflow-hidden rounded-3xl border bg-slate-100 shadow-sm">
+            <div className="relative">
+              {/* Swap this image to whatever hero you prefer */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/contact-hero.jpg"
+                alt="Contact Antigua Boats"
+                className="h-[320px] w-full object-cover md:h-[420px]"
+                loading="eager"
+              />
 
-        <div className="relative mx-auto flex h-full max-w-6xl items-end px-4 pb-10 sm:px-6 lg:px-8">
-          <div className="max-w-2xl">
-            <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium tracking-wide text-white backdrop-blur">
-              <MessageCircle className="h-4 w-4" />
-              We usually reply quickly
-            </p>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-              Contact us
-            </h1>
-            <p className="mt-3 text-base text-white/90 sm:text-lg">
-              Tell us what you’re planning and we’ll help you build the perfect day on the water.
-            </p>
+              <div className="absolute inset-0 bg-black/45" aria-hidden />
+
+              <div className="absolute inset-0 flex items-end">
+                <div className="p-6 pb-10 md:p-10">
+                  <div className="max-w-2xl">
+                    <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium tracking-wide text-white backdrop-blur">
+                      <MessageCircle className="h-4 w-4" />
+                      We usually reply quickly
+                    </p>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+                      Contact us
+                    </h1>
+                    <p className="mt-3 text-base text-white/90 sm:text-lg">
+                      Tell us what you’re planning and we’ll help you build the perfect day on the water.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -234,17 +243,23 @@ export default function ContactPage() {
                     YouTube
                   </a>
 
-                  {/* No official TikTok icon in lucide-react in many versions; use a simple text badge */}
+                  {/* Use the correct TikTok logo (no lucide icon in many versions) */}
                   <a
                     href="https://www.tiktok.com/"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
                     aria-label="TikTok"
+                    title="TikTok"
                   >
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-slate-900 text-[10px] font-bold leading-none text-white">
-                      t
-                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="currentColor"
+                    >
+                      <path d="M19.321 5.562a5.124 5.124 0 0 1-3.004-3.01.01.01 0 0 0-.01-.008h-3.01a.01.01 0 0 0-.01.01v13.278a2.52 2.52 0 1 1-2.52-2.52c.186 0 .366.022.54.061a.01.01 0 0 0 .012-.01V10.3a.01.01 0 0 0-.008-.01 6.1 6.1 0 1 0 4.996 5.99V9.59a.01.01 0 0 1 .015-.009 8.06 8.06 0 0 0 4.999 1.736.01.01 0 0 0 .01-.01V8.296a.01.01 0 0 0-.008-.01 5.115 5.115 0 0 1-1.992-.724Z" />
+                    </svg>
                     TikTok
                   </a>
                 </div>
