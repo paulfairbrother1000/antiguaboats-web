@@ -15,22 +15,32 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("charter_types")
-    .select("slot_mode,title,base_price_cents,currency,active")
+    .select("slug,slot_mode,title,base_price_cents,currency,active")
     .eq("active", true);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Return a simple map keyed by slot_mode: FD/AM/PM/SS
-  const map: Record<string, { title: string; base_price_cents: number; currency: string }> = {};
+  // Build two maps:
+  // 1) by slot_mode (FD/AM/PM/SS) if your DB uses it
+  // 2) by slug (day/half-day/sunset) which your charter pages already use
+  const by_slot_mode: Record<string, { title: string; base_price_cents: number; currency: string; slug?: string }> =
+    {};
+  const by_slug: Record<string, { title: string; base_price_cents: number; currency: string; slot_mode?: string }> = {};
+
   for (const row of data ?? []) {
-    const slot = (row as any).slot_mode;
-    if (!slot) continue;
-    map[String(slot)] = {
-      title: String((row as any).title ?? ""),
-      base_price_cents: Number((row as any).base_price_cents ?? 0),
-      currency: String((row as any).currency ?? "USD"),
-    };
+    const slug = String((row as any).slug ?? "");
+    const slot_mode = (row as any).slot_mode ? String((row as any).slot_mode) : "";
+    const title = String((row as any).title ?? "");
+    const base_price_cents = Number((row as any).base_price_cents ?? 0);
+    const currency = String((row as any).currency ?? "USD");
+
+    if (slug) {
+      by_slug[slug] = { title, base_price_cents, currency, slot_mode: slot_mode || undefined };
+    }
+    if (slot_mode) {
+      by_slot_mode[slot_mode] = { title, base_price_cents, currency, slug: slug || undefined };
+    }
   }
 
-  return NextResponse.json(map);
+  return NextResponse.json({ by_slot_mode, by_slug });
 }

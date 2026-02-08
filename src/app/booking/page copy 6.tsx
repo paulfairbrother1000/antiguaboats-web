@@ -19,17 +19,14 @@ const EXTRA_GUEST_CENTS = 50 * 100; // guests 7–9
 const NOBU_FUEL_CENTS = 200 * 100;
 const LUNCH_PER_HEAD_CENTS = 50 * 100;
 
-const SLOT_TO_SLUG: Record<Slot, "day" | "half-day" | "sunset"> = {
-  FD: "day",
-  AM: "half-day",
-  PM: "half-day",
-  SS: "sunset",
-};
-
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
+/**
+ * IMPORTANT: use *local* date parts to avoid timezone day-shifts.
+ * toISOString() converts to UTC which can show "yesterday" depending on TZ/DST.
+ */
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
@@ -62,12 +59,9 @@ function endOfDay(d: Date) {
   return x;
 }
 
-type PriceRow = { title: string; base_price_cents: number; currency: string; slug?: string; slot_mode?: string };
-
-type CharterTypesResponse = {
-  by_slot_mode?: Record<string, PriceRow>;
-  by_slug?: Record<string, PriceRow>;
-};
+type CharterTypeMap = Partial<
+  Record<Slot, { title: string; base_price_cents: number; currency: string }>
+>;
 
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -101,9 +95,8 @@ export default function BookingPage() {
   const [availability, setAvailability] = useState<DayAvail[]>([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
 
-  // DB-driven charter prices
-  const [ctBySlot, setCtBySlot] = useState<Record<string, PriceRow>>({});
-  const [ctBySlug, setCtBySlug] = useState<Record<string, PriceRow>>({});
+  // DB-driven charter types/prices
+  const [charterTypes, setCharterTypes] = useState<CharterTypeMap>({});
   const [loadingCharterTypes, setLoadingCharterTypes] = useState(false);
 
   const [quote, setQuote] = useState<null | {
@@ -113,6 +106,9 @@ export default function BookingPage() {
   }>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
 
+  // Booking window rules:
+  // - Show calendar up to end of the month, 12 months from current month
+  // - Allow booking up to 1 year from today (inclusive)
   const today = useMemo(() => new Date(), []);
   const maxVisibleMonth = useMemo(() => startOfMonth(addMonths(today, 12)), [today]);
   const maxBookDate = useMemo(() => endOfDay(addYears(today, 1)), [today]);
@@ -122,14 +118,29 @@ export default function BookingPage() {
     return x;
   }, [today]);
 
-  // Fetch charter types/prices ONCE
+  // Fetch charter types/prices ONCE (Option A)
   useEffect(() => {
     setLoadingCharterTypes(true);
     fetch("/api/charter-types")
       .then((r) => r.json())
-      .then((data: CharterTypesResponse) => {
-        setCtBySlot((data && data.by_slot_mode && typeof data.by_slot_mode === "object") ? data.by_slot_mode : {});
-        setCtBySlug((data && data.by_slug && typeof data.by_slug === "object") ? data.by_slug : {});
+      .then((data) => {
+        if (!data || typeof data !== "object") {
+          setCharterTypes({});
+          return;
+        }
+        // accept FD/AM/PM/SS keys
+        const map: CharterTypeMap = {};
+        (["FD", "AM", "PM", "SS"] as Slot[]).forEach((k) => {
+          const v = (data as any)[k];
+          if (v && typeof v === "object") {
+            map[k] = {
+              title: String(v.title ?? ""),
+              base_price_cents: Number(v.base_price_cents ?? 0),
+              currency: String(v.currency ?? "USD"),
+            };
+          }
+        });
+        setCharterTypes(map);
       })
       .finally(() => setLoadingCharterTypes(false));
   }, []);
@@ -137,7 +148,7 @@ export default function BookingPage() {
   // Fetch availability for visible month (DO NOT TOUCH)
   useEffect(() => {
     const from = new Date(month.getFullYear(), month.getMonth(), 1);
-    const to = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+    const to = new Date(month.getFullYear(), month.getMonth() + 1, 0); // last day of month
     const fromStr = isoDate(from);
     const toStr = isoDate(to);
 
@@ -159,6 +170,7 @@ export default function BookingPage() {
     return availByDate.get(isoDate(selectedDate)) ?? null;
   }, [selectedDate, availByDate]);
 
+  // Helper: classify a day based on how many slots remain (DO NOT TOUCH)
   const dayClass = (date: Date) => {
     const day = availByDate.get(isoDate(date));
     if (!day) return "unknown";
@@ -168,6 +180,7 @@ export default function BookingPage() {
     return "partial";
   };
 
+  // Unavailable days are unclickable (disabled) (DO NOT TOUCH)
   const disabledDays = useMemo(() => {
     return (date: Date) => {
       if (date < minBookDate) return true;
@@ -179,7 +192,7 @@ export default function BookingPage() {
     };
   }, [availByDate, minBookDate, maxBookDate]);
 
-  // When date changes, clear slot + FD-only options
+  // When date changes, ALWAYS clear slot (no pre-select / no leading)
   useEffect(() => {
     if (!selectedDate) return;
     setSelectedSlot(undefined);
@@ -200,7 +213,7 @@ export default function BookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSlot]);
 
-  // Clamp vegan meals 0..guests
+  // Clamp vegan meals to 0..guests
   useEffect(() => {
     setVeganMeals((v) => {
       const n = Number.isFinite(v) ? v : 0;
@@ -252,23 +265,10 @@ export default function BookingPage() {
     return (day.available ?? []).map((s) => SLOT_LABEL[s]).join(" • ");
   }, [selectedDate, selectedDayAvail]);
 
-  function getSlotPriceCents(slot: Slot): number | null {
-    // 1) prefer direct slot_mode mapping
-    const byMode = ctBySlot?.[slot];
-    if (byMode && Number.isFinite(byMode.base_price_cents) && byMode.base_price_cents > 0) {
-      return Number(byMode.base_price_cents);
-    }
-    // 2) fallback to slug mapping (day/half-day/sunset)
-    const slug = SLOT_TO_SLUG[slot];
-    const bySlug = ctBySlug?.[slug];
-    if (bySlug && Number.isFinite(bySlug.base_price_cents) && bySlug.base_price_cents > 0) {
-      return Number(bySlug.base_price_cents);
-    }
-    return null;
-  }
-
   // ---- Price summary (UI) ----
-  const basePriceCents = selectedSlot ? getSlotPriceCents(selectedSlot) : null;
+  const basePriceCents = selectedSlot
+    ? Number(charterTypes?.[selectedSlot]?.base_price_cents ?? 0) || null
+    : null;
 
   const extraGuestsCount = Math.max(0, guests - 6);
   const extraGuestsCents = extraGuestsCount * EXTRA_GUEST_CENTS;
@@ -276,6 +276,7 @@ export default function BookingPage() {
   const lunchCents = selectedSlot === "FD" && lunch ? guests * LUNCH_PER_HEAD_CENTS : 0;
   const extrasCents = extraGuestsCents + nobuCents + lunchCents;
 
+  // Prefer API quote total if present, else fall back to local calc
   const totalCents =
     quote?.total_amount_cents ??
     (basePriceCents !== null ? basePriceCents + extrasCents : null);
@@ -319,7 +320,7 @@ export default function BookingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date: isoDate(selectedDate),
-          slot: selectedSlot,
+          slot: selectedSlot, // FD|AM|PM|SS
           guests,
           total_amount_cents: totalCents,
           currency: "USD",
@@ -347,12 +348,14 @@ export default function BookingPage() {
 
   return (
     <main className="bg-white text-slate-900">
-      {/* --- DO NOT TOUCH CALENDAR STYLING / RDP --- */}
+      {/* RDP: self-contained calendar styling (GRID-based, avoids global CSS table resets) */}
       <style jsx global>{`
         .ab-rdp .rdp {
           --ab-gap: 10px;
           width: 100%;
         }
+
+        /* Availability modifier classes (applied to the day wrapper) */
         .ab-rdp .ab-unavailable .rdp-day_button {
           background: #0f172a;
           border-color: #0f172a;
@@ -368,25 +371,30 @@ export default function BookingPage() {
           border-color: #e2e8f0;
           color: #0f172a;
         }
+
         .ab-rdp .rdp-months,
         .ab-rdp .rdp-month {
           width: 100%;
         }
+
         .ab-rdp .rdp-caption {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 0 6px 10px 6px;
         }
+
         .ab-rdp .rdp-caption_label {
           font-weight: 700;
           font-size: 18px;
           color: #0f172a;
         }
+
         .ab-rdp .rdp-nav {
           display: flex;
           gap: 10px;
         }
+
         .ab-rdp .rdp-nav_button {
           border: 1px solid #e2e8f0;
           border-radius: 14px;
@@ -396,15 +404,19 @@ export default function BookingPage() {
         .ab-rdp .rdp-nav_button:hover {
           background: #f8fafc;
         }
+
+        /* === Force 7-col GRID for weekday row + weeks === */
         .ab-rdp .rdp-month_grid {
           display: grid;
           gap: var(--ab-gap);
         }
+
         .ab-rdp .rdp-weekdays {
           display: grid;
           grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: var(--ab-gap);
         }
+
         .ab-rdp .rdp-weekday {
           height: 26px;
           display: flex;
@@ -417,18 +429,23 @@ export default function BookingPage() {
           white-space: nowrap;
           padding: 0;
         }
+
         .ab-rdp .rdp-weeks {
           display: grid;
           gap: var(--ab-gap);
         }
+
         .ab-rdp .rdp-week {
           display: grid;
           grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: var(--ab-gap);
         }
+
         .ab-rdp .rdp-day {
           width: 100%;
         }
+
+        /* Inner button (many RDP versions) */
         .ab-rdp .rdp-day_button {
           width: 100%;
           height: 54px;
@@ -442,24 +459,31 @@ export default function BookingPage() {
           justify-content: center;
           transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
         }
+
         .ab-rdp .rdp-day_button:hover {
           background: #f8fafc;
         }
+
         .ab-rdp .rdp-day_outside .rdp-day_button {
           color: #cbd5e1;
         }
+
         .ab-rdp .rdp-day_disabled .rdp-day_button {
           opacity: 0.7;
           cursor: not-allowed;
         }
+
         .ab-rdp .rdp-day_today .rdp-day_button {
           box-shadow: 0 0 0 2px #cbd5e1 inset;
         }
+
         .ab-rdp .rdp-day_selected .rdp-day_button {
           background: #0f172a;
           border-color: #0f172a;
           color: #ffffff;
         }
+
+        /* Selected should always win */
         .ab-rdp .rdp-day_selected.ab-partial .rdp-day_button,
         .ab-rdp .rdp-day_selected.ab-unavailable .rdp-day_button,
         .ab-rdp .rdp-day_selected.ab-available .rdp-day_button {
@@ -510,12 +534,14 @@ export default function BookingPage() {
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
               </div>
 
+              {/* ✅ CRITICAL: keep DayPicker inside ab-rdp wrapper so layout + shading works */}
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 ab-rdp">
                 <DayPicker
                   mode="single"
                   selected={selectedDate}
                   onSelect={(d) => {
                     setSelectedDate(d);
+                    // no pre-select / no leading
                     setSelectedSlot(undefined);
                     setNobu(false);
                     setLunch(false);
@@ -545,6 +571,7 @@ export default function BookingPage() {
                 />
               </div>
 
+              {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between gap-3 text-sm font-semibold">
                   <span>Selected date</span>
@@ -564,6 +591,7 @@ export default function BookingPage() {
                 </div>
               </div>
 
+              {/* Charter chooser (only after date selected) */}
               <div className="mt-6">
                 <h3 className="mb-2 text-base font-semibold">Charter type</h3>
 
@@ -579,12 +607,27 @@ export default function BookingPage() {
                   </div>
                 )}
 
+                {selectedDate && loadingAvail && !selectedDayAvail && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    Loading availability for this month…
+                  </div>
+                )}
+
+                {selectedDate && !loadingAvail && !selectedDayAvail && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    Availability not loaded for this date yet.
+                  </div>
+                )}
+
                 {selectedDate && !!selectedDayAvail && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
                       const selected = selectedSlot === slot;
-                      const priceCents = getSlotPriceCents(slot);
+
+                      const dbPrice = charterTypes?.[slot]?.base_price_cents;
+                      const priceCents =
+                        typeof dbPrice === "number" && dbPrice > 0 ? dbPrice : null;
 
                       return (
                         <button
@@ -626,7 +669,7 @@ export default function BookingPage() {
                 )}
               </div>
 
-              {/* Guests + Options (unchanged from your version with lunch) */}
+              {/* Guests + Options */}
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-sm font-semibold">Guests</div>
@@ -655,6 +698,7 @@ export default function BookingPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-sm font-semibold">Options</div>
 
+                  {/* Nobu */}
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Nobu trip</div>
@@ -672,6 +716,7 @@ export default function BookingPage() {
                     />
                   </div>
 
+                  {/* Lunch */}
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Lunch on board</div>
@@ -726,7 +771,7 @@ export default function BookingPage() {
               </div>
             </div>
 
-            {/* Summary (unchanged except basePriceCents now DB-driven) */}
+            {/* Summary */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-base font-semibold">Cost</h3>
 
@@ -757,6 +802,15 @@ export default function BookingPage() {
                   <span className="text-slate-600">Extras</span>
                   <span className="font-semibold">{selectedSlot ? money(extrasCents) : "—"}</span>
                 </div>
+
+                {selectedSlot && (
+                  <div className="text-xs text-slate-500">
+                    {extraGuestsCount > 0 ? `+${extraGuestsCount} extra guest(s)` : "No extra guests"}
+                    {selectedSlot === "FD" && nobu ? " • Nobu fuel surcharge" : ""}
+                    {selectedSlot === "FD" && lunch ? ` • Lunch on board (${guests} meals)` : ""}
+                    {selectedSlot === "FD" && lunch && veganMeals > 0 ? ` • Vegan: ${veganMeals}` : ""}
+                  </div>
+                )}
               </div>
 
               <div className="my-4 border-t border-slate-200" />
@@ -804,7 +858,6 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Step 2 and Step 3 are unchanged from your existing file */}
         {step === 2 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Step 2 — tell us more</h2>
@@ -893,7 +946,9 @@ export default function BookingPage() {
                 </div>
                 <div>
                   <span className="text-slate-600">Charter:</span>{" "}
-                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
+                  <span className="font-semibold">
+                    {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-600">Guests:</span>{" "}
