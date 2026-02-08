@@ -15,17 +15,6 @@ const SLOT_LABEL: Record<Slot, string> = {
   SS: "Sunset Cruise",
 };
 
-/**
- * Display prices (UI only).
- * Your /api/quote is still the source of truth for totals.
- */
-const SLOT_PRICE_CENTS: Record<Slot, number> = {
-  FD: 2200 * 100,
-  AM: 1400 * 100,
-  PM: 1400 * 100,
-  SS: 800 * 100,
-};
-
 const EXTRA_GUEST_CENTS = 50 * 100; // guests 7–9
 const NOBU_FUEL_CENTS = 200 * 100;
 const LUNCH_PER_HEAD_CENTS = 50 * 100;
@@ -70,6 +59,10 @@ function endOfDay(d: Date) {
   return x;
 }
 
+type CharterTypeMap = Partial<
+  Record<Slot, { title: string; base_price_cents: number; currency: string }>
+>;
+
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -102,6 +95,10 @@ export default function BookingPage() {
   const [availability, setAvailability] = useState<DayAvail[]>([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
 
+  // DB-driven charter types/prices
+  const [charterTypes, setCharterTypes] = useState<CharterTypeMap>({});
+  const [loadingCharterTypes, setLoadingCharterTypes] = useState(false);
+
   const [quote, setQuote] = useState<null | {
     currency: string;
     breakdown: { label: string; amount_cents: number }[];
@@ -113,15 +110,42 @@ export default function BookingPage() {
   // - Show calendar up to end of the month, 12 months from current month
   // - Allow booking up to 1 year from today (inclusive)
   const today = useMemo(() => new Date(), []);
-  const maxVisibleMonth = useMemo(() => startOfMonth(addMonths(today, 12)), [today]); // e.g. Feb 2027 if today is Feb 2026
-  const maxBookDate = useMemo(() => endOfDay(addYears(today, 1)), [today]); // e.g. up to Feb 3rd 2027 inclusive
+  const maxVisibleMonth = useMemo(() => startOfMonth(addMonths(today, 12)), [today]);
+  const maxBookDate = useMemo(() => endOfDay(addYears(today, 1)), [today]);
   const minBookDate = useMemo(() => {
     const x = new Date(today);
     x.setHours(0, 0, 0, 0);
     return x;
   }, [today]);
 
-  // Fetch availability for visible month
+  // Fetch charter types/prices ONCE (Option A)
+  useEffect(() => {
+    setLoadingCharterTypes(true);
+    fetch("/api/charter-types")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data || typeof data !== "object") {
+          setCharterTypes({});
+          return;
+        }
+        // accept FD/AM/PM/SS keys
+        const map: CharterTypeMap = {};
+        (["FD", "AM", "PM", "SS"] as Slot[]).forEach((k) => {
+          const v = (data as any)[k];
+          if (v && typeof v === "object") {
+            map[k] = {
+              title: String(v.title ?? ""),
+              base_price_cents: Number(v.base_price_cents ?? 0),
+              currency: String(v.currency ?? "USD"),
+            };
+          }
+        });
+        setCharterTypes(map);
+      })
+      .finally(() => setLoadingCharterTypes(false));
+  }, []);
+
+  // Fetch availability for visible month (DO NOT TOUCH)
   useEffect(() => {
     const from = new Date(month.getFullYear(), month.getMonth(), 1);
     const to = new Date(month.getFullYear(), month.getMonth() + 1, 0); // last day of month
@@ -146,7 +170,7 @@ export default function BookingPage() {
     return availByDate.get(isoDate(selectedDate)) ?? null;
   }, [selectedDate, availByDate]);
 
-  // Helper: classify a day based on how many slots remain
+  // Helper: classify a day based on how many slots remain (DO NOT TOUCH)
   const dayClass = (date: Date) => {
     const day = availByDate.get(isoDate(date));
     if (!day) return "unknown";
@@ -156,14 +180,12 @@ export default function BookingPage() {
     return "partial";
   };
 
-  // Unavailable days are unclickable (disabled)
+  // Unavailable days are unclickable (disabled) (DO NOT TOUCH)
   const disabledDays = useMemo(() => {
     return (date: Date) => {
-      // booking window guards
       if (date < minBookDate) return true;
       if (date > maxBookDate) return true;
 
-      // day availability guards (only if we have data)
       const day = availByDate.get(isoDate(date));
       if (!day) return false;
       return (day.available?.length ?? 0) === 0;
@@ -210,9 +232,7 @@ export default function BookingPage() {
       setQuote(null);
       return;
     }
-    if (nobu && selectedSlot !== "FD") setNobu(false);
 
-    // FD-only enforcement
     const lunchOk = selectedSlot === "FD" ? lunch : false;
     const nobuOk = selectedSlot === "FD" ? nobu : false;
     const veganOk = lunchOk ? veganMeals : 0;
@@ -246,7 +266,10 @@ export default function BookingPage() {
   }, [selectedDate, selectedDayAvail]);
 
   // ---- Price summary (UI) ----
-  const basePriceCents = selectedSlot ? SLOT_PRICE_CENTS[selectedSlot] : null;
+  const basePriceCents = selectedSlot
+    ? Number(charterTypes?.[selectedSlot]?.base_price_cents ?? 0) || null
+    : null;
+
   const extraGuestsCount = Math.max(0, guests - 6);
   const extraGuestsCents = extraGuestsCount * EXTRA_GUEST_CENTS;
   const nobuCents = selectedSlot === "FD" && nobu ? NOBU_FUEL_CENTS : 0;
@@ -279,7 +302,6 @@ export default function BookingPage() {
     try {
       setPaying(true);
 
-      // Preserve comments, but append selected options so nothing is lost
       const optionNotes: string[] = [];
       if (selectedSlot === "FD" && lunch) {
         optionNotes.push(`Lunch on board: Yes (${guests} meals, vegan: ${veganMeals})`);
@@ -573,6 +595,12 @@ export default function BookingPage() {
               <div className="mt-6">
                 <h3 className="mb-2 text-base font-semibold">Charter type</h3>
 
+                {loadingCharterTypes && (
+                  <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    Loading charter prices…
+                  </div>
+                )}
+
                 {!selectedDate && (
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
                     Select a date on the calendar to see what’s available.
@@ -596,7 +624,10 @@ export default function BookingPage() {
                     {(Object.keys(SLOT_LABEL) as Slot[]).map((slot) => {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
                       const selected = selectedSlot === slot;
-                      const price = SLOT_PRICE_CENTS[slot];
+
+                      const dbPrice = charterTypes?.[slot]?.base_price_cents;
+                      const priceCents =
+                        typeof dbPrice === "number" && dbPrice > 0 ? dbPrice : null;
 
                       return (
                         <button
@@ -623,7 +654,9 @@ export default function BookingPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div className="font-semibold">{SLOT_LABEL[slot]}</div>
                             <div className={selected ? "text-white" : "text-slate-900"}>
-                              <span className="text-base font-semibold">{money(price)}</span>
+                              <span className="text-base font-semibold">
+                                {priceCents !== null ? money(priceCents) : "—"}
+                              </span>
                             </div>
                           </div>
                           <div className={selected ? "text-white/80" : "text-sm text-slate-600"}>
