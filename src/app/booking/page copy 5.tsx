@@ -28,7 +28,6 @@ const SLOT_PRICE_CENTS: Record<Slot, number> = {
 
 const EXTRA_GUEST_CENTS = 50 * 100; // guests 7–9
 const NOBU_FUEL_CENTS = 200 * 100;
-const LUNCH_PER_HEAD_CENTS = 50 * 100;
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -78,10 +77,6 @@ export default function BookingPage() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
   const [guests, setGuests] = useState<number>(6);
   const [nobu, setNobu] = useState<boolean>(false);
-
-  // Lunch options (FD only)
-  const [lunch, setLunch] = useState<boolean>(false);
-  const [veganMeals, setVeganMeals] = useState<number>(0);
 
   // Step 2 state
   const [comments, setComments] = useState<string>("");
@@ -175,47 +170,16 @@ export default function BookingPage() {
     if (!selectedDate) return;
     setSelectedSlot(undefined);
     setNobu(false);
-    setLunch(false);
-    setVeganMeals(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
-  // If slot moves away from FD, clear FD-only options
-  useEffect(() => {
-    if (!selectedSlot) return;
-    if (selectedSlot !== "FD") {
-      if (nobu) setNobu(false);
-      if (lunch) setLunch(false);
-      if (veganMeals !== 0) setVeganMeals(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSlot]);
-
-  // Clamp vegan meals to 0..guests
-  useEffect(() => {
-    setVeganMeals((v) => {
-      const n = Number.isFinite(v) ? v : 0;
-      return Math.max(0, Math.min(guests, n));
-    });
-  }, [guests]);
-
-  // If lunch unchecked, reset vegan meals
-  useEffect(() => {
-    if (!lunch && veganMeals !== 0) setVeganMeals(0);
-  }, [lunch, veganMeals]);
-
-  // Quote whenever slot/guests/options changes (and slot is selected)
+  // Quote whenever slot/guests/nobu changes (and slot is selected)
   useEffect(() => {
     if (!selectedSlot) {
       setQuote(null);
       return;
     }
     if (nobu && selectedSlot !== "FD") setNobu(false);
-
-    // FD-only enforcement
-    const lunchOk = selectedSlot === "FD" ? lunch : false;
-    const nobuOk = selectedSlot === "FD" ? nobu : false;
-    const veganOk = lunchOk ? veganMeals : 0;
 
     setLoadingQuote(true);
     fetch(`/api/quote`, {
@@ -224,15 +188,13 @@ export default function BookingPage() {
       body: JSON.stringify({
         slot_mode: selectedSlot,
         guests,
-        nobu: nobuOk,
-        lunch: lunchOk,
-        vegan_meals: veganOk,
+        nobu: selectedSlot === "FD" ? nobu : false,
       }),
     })
       .then((r) => r.json())
       .then((data) => setQuote(data?.total_amount_cents ? data : null))
       .finally(() => setLoadingQuote(false));
-  }, [selectedSlot, guests, nobu, lunch, veganMeals]);
+  }, [selectedSlot, guests, nobu]);
 
   const canContinue =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
@@ -250,8 +212,7 @@ export default function BookingPage() {
   const extraGuestsCount = Math.max(0, guests - 6);
   const extraGuestsCents = extraGuestsCount * EXTRA_GUEST_CENTS;
   const nobuCents = selectedSlot === "FD" && nobu ? NOBU_FUEL_CENTS : 0;
-  const lunchCents = selectedSlot === "FD" && lunch ? guests * LUNCH_PER_HEAD_CENTS : 0;
-  const extrasCents = extraGuestsCents + nobuCents + lunchCents;
+  const extrasCents = extraGuestsCents + nobuCents;
 
   // Prefer API quote total if present, else fall back to local calc
   const totalCents =
@@ -279,20 +240,6 @@ export default function BookingPage() {
     try {
       setPaying(true);
 
-      // Preserve comments, but append selected options so nothing is lost
-      const optionNotes: string[] = [];
-      if (selectedSlot === "FD" && lunch) {
-        optionNotes.push(`Lunch on board: Yes (${guests} meals, vegan: ${veganMeals})`);
-      }
-      if (selectedSlot === "FD" && nobu) {
-        optionNotes.push("Nobu trip: Yes");
-      }
-
-      const notesCombined =
-        [comments?.trim() || null, optionNotes.length ? optionNotes.join(" • ") : null]
-          .filter(Boolean)
-          .join("\n") || null;
-
       const res = await fetch("/api/bookings/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -305,7 +252,7 @@ export default function BookingPage() {
           customer_name: customerName.trim(),
           customer_email: customerEmail.trim(),
           customer_phone: customerPhone.trim() || null,
-          notes: notesCombined,
+          notes: comments?.trim() || null,
         }),
       });
 
@@ -522,8 +469,6 @@ export default function BookingPage() {
                     // no pre-select / no leading
                     setSelectedSlot(undefined);
                     setNobu(false);
-                    setLunch(false);
-                    setVeganMeals(0);
                     setQuote(null);
                     setPayError("");
                     setBookingId("");
@@ -605,11 +550,7 @@ export default function BookingPage() {
                           onClick={() => {
                             if (!enabled) return;
                             setSelectedSlot(slot);
-                            if (slot !== "FD") {
-                              setNobu(false);
-                              setLunch(false);
-                              setVeganMeals(0);
-                            }
+                            if (slot !== "FD") setNobu(false);
                           }}
                           disabled={!enabled}
                           className={[
@@ -636,7 +577,7 @@ export default function BookingPage() {
                 )}
               </div>
 
-              {/* Guests + Options */}
+              {/* Guests + Nobu */}
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-sm font-semibold">Guests</div>
@@ -664,8 +605,6 @@ export default function BookingPage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-sm font-semibold">Options</div>
-
-                  {/* Nobu */}
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Nobu trip</div>
@@ -682,53 +621,6 @@ export default function BookingPage() {
                       title={selectedSlot !== "FD" ? "Nobu is only available on Full Day Charter" : ""}
                     />
                   </div>
-
-                  {/* Lunch */}
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold">Lunch on board</div>
-                      <div className="text-sm text-slate-600">
-                        {money(LUNCH_PER_HEAD_CENTS)} per head
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5"
-                      checked={lunch}
-                      onChange={(e) => setLunch(e.target.checked)}
-                      disabled={selectedSlot !== "FD"}
-                      title={selectedSlot !== "FD" ? "Lunch is only available on Full Day Charter" : ""}
-                    />
-                  </div>
-
-                  {selectedSlot === "FD" && lunch && (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="text-sm font-semibold text-slate-900">Vegan meals</label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={guests}
-                          value={veganMeals}
-                          onChange={(e) => {
-                            const v = Number(e.target.value);
-                            if (!Number.isFinite(v)) {
-                              setVeganMeals(0);
-                              return;
-                            }
-                            setVeganMeals(Math.max(0, Math.min(guests, Math.floor(v))));
-                          }}
-                          className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300"
-                        />
-                      </div>
-                      <div className="mt-2 text-xs text-slate-600">
-                        Total meals: <span className="font-semibold">{guests}</span> • Vegan:{" "}
-                        <span className="font-semibold">{veganMeals}</span> • Standard:{" "}
-                        <span className="font-semibold">{Math.max(0, guests - veganMeals)}</span>
-                      </div>
-                    </div>
-                  )}
-
                   {selectedSlot !== "FD" && (
                     <div className="mt-2 text-xs text-slate-500">
                       Available on Full Day Charter only.
@@ -774,8 +666,6 @@ export default function BookingPage() {
                   <div className="text-xs text-slate-500">
                     {extraGuestsCount > 0 ? `+${extraGuestsCount} extra guest(s)` : "No extra guests"}
                     {selectedSlot === "FD" && nobu ? " • Nobu fuel surcharge" : ""}
-                    {selectedSlot === "FD" && lunch ? ` • Lunch on board (${guests} meals)` : ""}
-                    {selectedSlot === "FD" && lunch && veganMeals > 0 ? ` • Vegan: ${veganMeals}` : ""}
                   </div>
                 )}
               </div>
@@ -913,9 +803,7 @@ export default function BookingPage() {
                 </div>
                 <div>
                   <span className="text-slate-600">Charter:</span>{" "}
-                  <span className="font-semibold">
-                    {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
-                  </span>
+                  <span className="font-semibold">{selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}</span>
                 </div>
                 <div>
                   <span className="text-slate-600">Guests:</span>{" "}
