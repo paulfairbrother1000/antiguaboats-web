@@ -264,19 +264,11 @@ export default function ContactPage() {
                   </a>
                 </div>
 
-                <p className="mt-4 text-xs text-slate-500">
-                  (Update these links to your real profiles when ready.)
-                </p>
+            
               </div>
             </div>
 
-            <div className="mt-6 text-xs text-slate-500">
-              Prefer? You can also browse our{" "}
-              <Link className="underline hover:text-slate-700" href="/charters">
-                charters
-              </Link>{" "}
-              and message us with the date + headcount.
-            </div>
+        
           </aside>
 
           {/* RIGHT: FORM */}
@@ -298,7 +290,7 @@ export default function ContactPage() {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500"
-                      placeholder="Paul"
+                      placeholder="First Name"
                       autoComplete="given-name"
                     />
                   </div>
@@ -311,7 +303,7 @@ export default function ContactPage() {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500"
-                      placeholder="Fairbrother"
+                      placeholder="Last Name"
                       autoComplete="family-name"
                     />
                   </div>
@@ -409,7 +401,7 @@ export default function ContactPage() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     className="mt-1 min-h-[120px] w-full resize-y rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500"
-                    placeholder="Tell us your preferred date, headcount, and what kind of day you want…"
+                    placeholder="Tell us your preferred date, headcount, restaurant or catering requirements and what kind of day you want…"
                   />
                 </div>
 
