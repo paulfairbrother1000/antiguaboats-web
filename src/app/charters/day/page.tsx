@@ -1,4 +1,3 @@
-// src/app/charters/day/page.tsx
 import CharterTemplate from "@/components/CharterTemplate";
 import { createClient } from "@supabase/supabase-js";
 
@@ -53,10 +52,10 @@ export default async function FullDayCharterPage() {
   const lunchImages = ["/food/img1.jpg", "/food/img2.jpg", "/food/img3.jpg", "/food/img4.jpg"];
 
   const lunchTile = (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-slate-900">Lunch Options</h2>
+    <div className="rounded-3xl border bg-white p-7">
+      <div className="text-xl font-black tracking-tight text-slate-900">Lunch Options</div>
 
-      <div className="mt-4 space-y-4 text-base leading-relaxed text-slate-700">
+      <div className="mt-4 space-y-4 text-slate-700 leading-relaxed">
         <p>
           On your day&apos;s charter, after a morning of fun we can deliver you in style to one of
           Antigua’s outstanding waterside restaurants for lunch. Let us know when you book your
@@ -66,14 +65,14 @@ export default async function FullDayCharterPage() {
         <p>Alternatively, you are free to bring your own snacks and lunches.</p>
 
         <p>
-          For those wishing to stay onboard for a tasty, Caribbean inspired lunch without the
-          hassle of procuring your own, we provide light, Caribbean inspired cuisine at an
-          additional charge.
+          For those wishing to stay onboard for a tasty, Caribbean inspired lunch without the hassle
+          of procuring your own, we provide light, Caribbean inspired cuisine at an additional
+          charge.
         </p>
 
         <p>We have Standard and vegan menus.</p>
 
-        <p className="text-slate-600">
+        <p>
           Please remember our sports boat has no cooking facilities and our amazing crew are not
           gourmet chefs.
         </p>
@@ -90,10 +89,16 @@ export default async function FullDayCharterPage() {
       </div>
 
       {/* Lunch photo tiles: 2 cols on desktop + mobile landscape; 1 col on mobile portrait */}
-      <div className="mt-6 grid grid-cols-1 gap-4 min-[520px]:grid-cols-2">
-        {lunchImages.map((src) => (
-          <div key={src} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            <img src={src} alt="Lunch option" className="h-56 w-full object-cover" />
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {lunchImages.map((src, idx) => (
+          <div key={src} className="overflow-hidden rounded-3xl border bg-slate-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={`Lunch option image ${idx + 1}`}
+              className="h-56 w-full object-cover md:h-72"
+              loading="lazy"
+            />
           </div>
         ))}
       </div>
@@ -110,7 +115,7 @@ export default async function FullDayCharterPage() {
       priceUSD={priceUSD}
       hoursLine={hoursLine}
       tagline={tagline}
-      afterGallery={lunchTile}
+      afterImagesBeforeVideo={lunchTile}
     />
   );
 }
