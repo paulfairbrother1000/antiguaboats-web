@@ -11,12 +11,6 @@ type CharterTemplateProps = {
   priceUSD?: number | null;
   hoursLine?: string;
   tagline?: string;
-
-  /**
-   * Optional content inserted AFTER the 2x2 Image Grid and BEFORE the YouTube section.
-   * (Used for Day charter "Lunch Options" tile.)
-   */
-  afterImagesBeforeVideo?: React.ReactNode;
 };
 
 function getYouTubeEmbedUrl(url?: string) {
@@ -66,7 +60,6 @@ export default function CharterTemplate({
   priceUSD = null,
   hoursLine,
   tagline,
-  afterImagesBeforeVideo,
 }: CharterTemplateProps) {
   const embed = getYouTubeEmbedUrl(youtubeUrl);
 
@@ -157,9 +150,6 @@ export default function CharterTemplate({
           ))}
         </div>
       </section>
-
-      {/* ✅ Insert optional segment here (below images, above YouTube) */}
-      {afterImagesBeforeVideo ? <section className="mt-10">{afterImagesBeforeVideo}</section> : null}
 
       {/* YouTube */}
       {embed && (
