@@ -360,6 +360,12 @@ export default function PaceShuttleTiles({
                 ) : (
                   <div className="mt-2 text-sm text-slate-600">Live availability and pricing</div>
                 )}
+
+                <div className="mt-3 flex items-center justify-end">
+                  <div className="text-xs text-slate-500">
+                    Updated: {data?.fetched_at ? new Date(data.fetched_at).toLocaleString() : "—"}
+                  </div>
+                </div>
               </div>
             </div>
           );
