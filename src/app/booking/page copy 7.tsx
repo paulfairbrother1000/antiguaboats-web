@@ -588,28 +588,21 @@ export default function BookingPage() {
 
               {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900">Selected date</div>
-                    <div className="mt-1 text-sm text-slate-700">
-                      {selectedDate ? (
-                        <span className="font-semibold">{isoDate(selectedDate)}</span>
-                      ) : (
-                        <span className="text-slate-500">Select a date on the calendar.</span>
-                      )}
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                  <span>Selected date</span>
+                  <span>Available Charters</span>
+                </div>
 
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900">Available Charters</div>
-                    <div className="mt-1 text-sm text-slate-700">
-                      {selectedDate ? (
-                        <span>{selectedAvailText || (loadingAvail ? "Loading…" : "—")}</span>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </div>
-                  </div>
+                <div className="mt-1 text-sm text-slate-700">
+                  {selectedDate ? (
+                    <>
+                      <span className="font-semibold">{isoDate(selectedDate)}</span>
+                      <span className="mx-2 text-slate-300">•</span>
+                      <span>{selectedAvailText || (loadingAvail ? "Loading…" : "—")}</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">Select a date on the calendar.</span>
+                  )}
                 </div>
               </div>
 
