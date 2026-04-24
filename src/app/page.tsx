@@ -56,12 +56,12 @@ export default function HomePage() {
       <section className="py-6">
         <div className="mx-auto max-w-6xl px-4">
           <div className="rounded-3xl border bg-white p-7">
-            <div className="mb-6 flex justify-center">
+            <div className="mb-2 -mt-3 flex justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/antigua-boats-logo.png"
                 alt="Antigua Boats"
-                className="h-28 w-auto md:h-32"
+                className="h-36 w-auto md:h-40"
               />
             </div>
 
