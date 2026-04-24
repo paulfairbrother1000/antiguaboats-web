@@ -30,7 +30,7 @@ export default function SiteHeader() {
           <img
             src="/antigua-boats-logo.png"
             alt="Antigua Boats"
-            className="h-8 w-auto"
+            className="h-12 w-auto"
           />
         </Link>
 
