@@ -23,14 +23,26 @@ export default function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b">
-      <div className="mx-auto max-w-6xl px-4 py-1.5 flex items-center justify-center gap-3">
-        <nav className="hidden md:flex items-center gap-1">
+      <div className="mx-auto max-w-6xl px-4 py-1.5 flex items-center justify-between gap-3">
+        
+        {/* Mobile logo */}
+        <Link href="/" className="md:hidden flex items-center">
+          <img
+            src="/antigua-boats-logo.png"
+            alt="Antigua Boats"
+            className="h-8 w-auto"
+          />
+        </Link>
+
+        <nav className="hidden md:flex items-center gap-1 mx-auto">
           {nav.map((i) => (
             <Link
               key={i.href}
               href={i.href}
               className={`px-3 py-1.5 rounded-xl text-sm font-medium transition ${
-                isActive(i.href) ? "bg-sky-50 text-sky-700" : "text-slate-700 hover:bg-slate-50"
+                isActive(i.href)
+                  ? "bg-sky-50 text-sky-700"
+                  : "text-slate-700 hover:bg-slate-50"
               }`}
             >
               {i.label}
@@ -46,7 +58,7 @@ export default function SiteHeader() {
         </nav>
 
         <button
-          className="md:hidden ml-auto inline-flex items-center justify-center rounded-xl border px-3 py-2 text-slate-700 hover:bg-slate-50"
+          className="md:hidden inline-flex items-center justify-center rounded-xl border px-3 py-2 text-slate-700 hover:bg-slate-50"
           onClick={() => setOpen((v) => !v)}
           aria-label="Menu"
         >
@@ -63,12 +75,15 @@ export default function SiteHeader() {
                 href={i.href}
                 onClick={() => setOpen(false)}
                 className={`px-3 py-2 rounded-xl text-sm font-medium transition ${
-                  isActive(i.href) ? "bg-sky-50 text-sky-700" : "text-slate-700 hover:bg-slate-50"
+                  isActive(i.href)
+                    ? "bg-sky-50 text-sky-700"
+                    : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 {i.label}
               </Link>
             ))}
+
             <Link
               href="/availability?charter=day"
               onClick={() => setOpen(false)}
