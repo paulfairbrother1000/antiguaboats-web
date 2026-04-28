@@ -29,6 +29,65 @@ const SLOT_TO_SLUG: Record<Slot, "day" | "full-day-shared" | "half-day" | "sunse
   SS: "sunset",
 };
 
+const STANDARD_FULLY_AVAILABLE_SLOTS: Slot[] = ["FD", "AM", "PM", "SS"];
+
+function normalizeSlot(value: unknown): Slot | null {
+  const raw = String(value ?? "").trim().toUpperCase();
+
+  if (raw === "FD" || raw === "FULL_DAY" || raw === "FULL-DAY" || raw === "DAY") return "FD";
+  if (
+    raw === "SHARED_FD" ||
+    raw === "FD_SHARED" ||
+    raw === "FULL_DAY_SHARED" ||
+    raw === "SHARED_FULL_DAY" ||
+    raw === "FULL-DAY-SHARED" ||
+    raw === "FULL DAY SHARED"
+  ) {
+    return "SHARED_FD";
+  }
+  if (raw === "AM" || raw === "HALF_DAY_AM" || raw === "HALF-DAY-AM") return "AM";
+  if (raw === "PM" || raw === "HALF_DAY_PM" || raw === "HALF-DAY-PM") return "PM";
+  if (raw === "SS" || raw === "SUNSET" || raw === "SUNSET_CRUISE") return "SS";
+
+  return null;
+}
+
+function uniqSlots(slots: Slot[]) {
+  return Array.from(new Set(slots));
+}
+
+function normalizeDayAvailability(row: any): DayAvail {
+  const booked = uniqSlots((Array.isArray(row?.booked) ? row.booked : [])
+    .map(normalizeSlot)
+    .filter(Boolean) as Slot[]);
+
+  const available = uniqSlots((Array.isArray(row?.available) ? row.available : [])
+    .map(normalizeSlot)
+    .filter(Boolean) as Slot[]);
+
+  const soldOut = Boolean(row?.sold_out);
+
+  // Front-end safety net:
+  // If a private Full Day is available, the first Shared Full Day booking can also be offered.
+  // If one Shared Full Day booking already exists and the day is not sold out, keep SHARED_FD selectable
+  // for the second party. Once the second shared booking is made, the API should mark the day sold out
+  // or remove SHARED_FD from available.
+  if (!soldOut && available.includes("FD") && !available.includes("SHARED_FD")) {
+    available.push("SHARED_FD");
+  }
+
+  if (!soldOut && booked.includes("SHARED_FD") && !available.includes("SHARED_FD")) {
+    available.push("SHARED_FD");
+  }
+
+  return {
+    date: String(row?.date ?? ""),
+    booked,
+    available: uniqSlots(available),
+    sold_out: soldOut,
+  };
+}
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -176,7 +235,7 @@ export default function BookingPage() {
     setLoadingAvail(true);
     fetch(`/api/availability?from=${fromStr}&to=${toStr}`)
       .then((r) => r.json())
-      .then((data) => setAvailability(Array.isArray(data) ? data : []))
+      .then((data) => setAvailability(Array.isArray(data) ? data.map(normalizeDayAvailability) : []))
       .finally(() => setLoadingAvail(false));
   }, [month]);
 
@@ -191,13 +250,30 @@ export default function BookingPage() {
     return availByDate.get(isoDate(selectedDate)) ?? null;
   }, [selectedDate, availByDate]);
 
-  // Helper: classify a day based on how many slots remain (DO NOT TOUCH)
+  // Helper: classify a day based on availability.
+  // Black = fully booked/unavailable
+  // White = all standard private charter slots available
+  // Grey = partly booked
+  // Turquoise = Shared Full Day Charter has one party booked and one shared place remains
   const dayClass = (date: Date) => {
     const day = availByDate.get(isoDate(date));
     if (!day) return "unknown";
-    const count = day.available?.length ?? 0;
-    if (count === 0) return "unavailable";
-    if (count === Object.keys(SLOT_LABEL).length) return "available";
+
+    const available = day.available ?? [];
+    const booked = day.booked ?? [];
+
+    if (day.sold_out || available.length === 0) return "unavailable";
+
+    const sharedFullDayPartBooked =
+      booked.includes("SHARED_FD") && available.includes("SHARED_FD");
+
+    if (sharedFullDayPartBooked) return "shared-partial";
+
+    const allStandardSlotsAvailable = STANDARD_FULLY_AVAILABLE_SLOTS.every((slot) =>
+      available.includes(slot)
+    );
+
+    if (allStandardSlotsAvailable) return "available";
     return "partial";
   };
 
@@ -394,6 +470,11 @@ export default function BookingPage() {
           border-color: #e2e8f0;
           color: #0f172a;
         }
+        .ab-rdp .ab-shared-partial .rdp-day_button {
+          background: #2dd4bf;
+          border-color: #2dd4bf;
+          color: #0f172a;
+        }
         .ab-rdp .ab-available .rdp-day_button {
           background: #fff;
           border-color: #e2e8f0;
@@ -513,6 +594,7 @@ export default function BookingPage() {
 
         /* Selected should always win */
         .ab-rdp .rdp-day_selected.ab-partial .rdp-day_button,
+        .ab-rdp .rdp-day_selected.ab-shared-partial .rdp-day_button,
         .ab-rdp .rdp-day_selected.ab-unavailable .rdp-day_button,
         .ab-rdp .rdp-day_selected.ab-available .rdp-day_button {
           background: #0f172a;
@@ -556,7 +638,7 @@ export default function BookingPage() {
                 <div>
                   <h2 className="text-xl font-semibold">Step 1 — select charter type and date</h2>
                   <p className="text-sm text-slate-600">
-                    Black = unavailable • Grey = partly available • White = fully available
+                    Black = unavailable • Grey = partly available • White = fully available • Turquoise = Shared Day Charter available
                   </p>
                 </div>
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
@@ -589,11 +671,13 @@ export default function BookingPage() {
                   modifiers={{
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
+                    sharedPartial: (date) => dayClass(date) === "shared-partial",
                     available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
                     unavailable: "ab-unavailable",
                     partial: "ab-partial",
+                    sharedPartial: "ab-shared-partial",
                     available: "ab-available",
                   }}
                 />
