@@ -187,6 +187,7 @@ export default function BookingPage() {
   }, [today]);
 
   const allowExtras = selectedSlot === "FD";
+  const maxGuests = selectedSlot === "SHARED_FD" ? 4 : 9;
 
   // ✅ Fetch charter types/prices ONCE
   // Expect API to return: { by_slug: { day: {...}, "full-day-shared": {...}, "half-day": {...}, sunset: {...} } }
@@ -310,6 +311,13 @@ export default function BookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSlot]);
 
+  // Full Day Shared Charter allows max 4 guests per booking
+  useEffect(() => {
+    if (selectedSlot === "SHARED_FD" && guests > 4) {
+      setGuests(4);
+    }
+  }, [selectedSlot, guests]);
+
   // Clamp vegan meals to 0..guests
   useEffect(() => {
     setVeganMeals((v) => {
@@ -365,7 +373,7 @@ export default function BookingPage() {
   // ---- Price summary (UI) ----
   const basePriceCents = selectedSlot ? getSlotPriceCents(selectedSlot) : null;
 
-  const extraGuestsCount = Math.max(0, guests - 6);
+  const extraGuestsCount = selectedSlot === "SHARED_FD" ? 0 : Math.max(0, guests - 6);
   const extraGuestsCents = extraGuestsCount * EXTRA_GUEST_CENTS;
   const nobuCents = allowExtras && nobu ? NOBU_FUEL_CENTS : 0;
   const lunchCents = allowExtras && lunch ? guests * LUNCH_PER_HEAD_CENTS : 0;
@@ -822,13 +830,19 @@ export default function BookingPage() {
                     <div className="min-w-[40px] text-center text-lg font-semibold">{guests}</div>
                     <button
                       type="button"
-                      className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
-                      onClick={() => setGuests((g) => Math.min(9, g + 1))}
+                      className={[
+                        "rounded-xl border border-slate-200 px-3 py-2",
+                        guests >= maxGuests ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50",
+                      ].join(" ")}
+                      onClick={() => setGuests((g) => Math.min(maxGuests, g + 1))}
+                      disabled={guests >= maxGuests}
                     >
                       +
                     </button>
                     <div className="text-sm text-slate-600">
-                      Includes up to 6. Guests 7–9: +$50 each.
+                      {selectedSlot === "SHARED_FD"
+                        ? "Shared Charter allows up to 4 guests per booking."
+                        : "Includes up to 6. Guests 7–9: +$50 each."}
                     </div>
                   </div>
                 </div>
