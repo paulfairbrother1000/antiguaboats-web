@@ -189,20 +189,6 @@ export default function BookingPage() {
 
   const allowExtras = selectedSlot === "FD";
   const maxGuests = selectedSlot === "SHARED_FD" ? 4 : 9;
-  const selectedSharedBookingCount =
-    selectedSlot === "SHARED_FD"
-      ? selectedDayAvail?.booked?.filter((slot) => slot === "SHARED_FD").length ?? 0
-      : 0;
-  const isSecondSharedBooking = selectedSlot === "SHARED_FD" && selectedSharedBookingCount >= 1;
-  const isFirstSharedBooking = selectedSlot === "SHARED_FD" && selectedSharedBookingCount === 0;
-
-  const privateFullDayPriceCents = charterBySlug?.["day"]?.base_price_cents ?? 0;
-  const sharedFullDayPriceCents = charterBySlug?.["full-day-shared"]?.base_price_cents ?? 0;
-  const sharedUpgradeBalanceCents = Math.max(
-    0,
-    Number(privateFullDayPriceCents) - Number(sharedFullDayPriceCents)
-  );
-
   // ✅ Fetch charter types/prices ONCE
   // Expect API to return: { by_slug: { day: {...}, "full-day-shared": {...}, "half-day": {...}, sunset: {...} } }
   useEffect(() => {
@@ -264,6 +250,20 @@ export default function BookingPage() {
     if (!selectedDate) return null;
     return availByDate.get(isoDate(selectedDate)) ?? null;
   }, [selectedDate, availByDate]);
+
+  const selectedSharedBookingCount =
+    selectedSlot === "SHARED_FD"
+      ? selectedDayAvail?.booked?.filter((slot) => slot === "SHARED_FD").length ?? 0
+      : 0;
+  const isSecondSharedBooking = selectedSlot === "SHARED_FD" && selectedSharedBookingCount >= 1;
+  const isFirstSharedBooking = selectedSlot === "SHARED_FD" && selectedSharedBookingCount === 0;
+
+  const privateFullDayPriceCents = charterBySlug?.["day"]?.base_price_cents ?? 0;
+  const sharedFullDayPriceCents = charterBySlug?.["full-day-shared"]?.base_price_cents ?? 0;
+  const sharedUpgradeBalanceCents = Math.max(
+    0,
+    Number(privateFullDayPriceCents) - Number(sharedFullDayPriceCents)
+  );
 
   // Helper: classify a day based on availability.
   // Black = fully booked/unavailable
