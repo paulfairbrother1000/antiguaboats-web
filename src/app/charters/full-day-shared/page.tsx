@@ -74,13 +74,6 @@ export default async function FullDaySharedCharterPage() {
         </h2>
 
         <div className="mt-4 space-y-4 text-slate-700 leading-relaxed">
-          
-         
-
-          <p>
-            At the time of booking, we ask you what you would like to do in if another party doesn't share the charter with you. We then
-            automatically implement your choice 24 hours ahead of the booking.
-          </p>
 
           <p>
             At the time of booking, we ask for your preference in the event that no other booking shares your charter. You may choose from:, :
