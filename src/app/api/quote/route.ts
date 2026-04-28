@@ -1,44 +1,56 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-type Slot = "FD" | "AM" | "PM" | "SS";
+type Slot = "FD" | "SHARED_FD" | "AM" | "PM" | "SS";
 
 function isSlot(v: any): v is Slot {
-  return v === "FD" || v === "AM" || v === "PM" || v === "SS";
+  return v === "FD" || v === "SHARED_FD" || v === "AM" || v === "PM" || v === "SS";
 }
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
 
-  const slot_mode = body?.slot_mode as Slot | undefined; // FD/AM/PM/SS
+  const slot_mode = body?.slot_mode as Slot | undefined;
   const guests = Number(body?.guests);
   const nobu = Boolean(body?.nobu);
-
   const lunch = Boolean(body?.lunch);
+
   const vegan_meals_raw = body?.vegan_meals;
   const vegan_meals = Number.isFinite(Number(vegan_meals_raw)) ? Number(vegan_meals_raw) : 0;
 
   if (!isSlot(slot_mode)) {
     return NextResponse.json(
-      { error: "slot_mode must be one of FD, AM, PM, SS" },
+      { error: "slot_mode must be one of FD, SHARED_FD, AM, PM, SS" },
       { status: 400 }
     );
   }
+
   if (!Number.isFinite(guests) || guests < 1 || guests > 9) {
     return NextResponse.json({ error: "guests must be 1–9" }, { status: 400 });
   }
+
+  if (slot_mode === "SHARED_FD" && guests > 4) {
+    return NextResponse.json(
+      { error: "Full Day Shared Charter allows up to 4 guests per booking" },
+      { status: 400 }
+    );
+  }
+
   if (nobu && slot_mode !== "FD") {
     return NextResponse.json({ error: "nobu is only valid for FD" }, { status: 400 });
   }
+
   if (lunch && slot_mode !== "FD") {
     return NextResponse.json({ error: "lunch is only valid for FD" }, { status: 400 });
   }
+
   if (!Number.isFinite(vegan_meals) || vegan_meals < 0 || vegan_meals > guests) {
     return NextResponse.json(
       { error: "vegan_meals must be between 0 and guests" },
       { status: 400 }
     );
   }
+
   if (!lunch && vegan_meals > 0) {
     return NextResponse.json(
       { error: "vegan_meals is only valid when lunch is selected" },
@@ -51,7 +63,6 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Get charter type by slot_mode
   const { data: ct, error: ctErr } = await supabase
     .from("charter_types")
     .select("id,title,base_price_cents,currency,slot_mode,active")
@@ -60,11 +71,13 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (ctErr) return NextResponse.json({ error: ctErr.message }, { status: 500 });
-  if (!ct)
+
+  if (!ct) {
     return NextResponse.json(
       { error: "Charter type not found/active for slot_mode" },
       { status: 404 }
     );
+  }
 
   const { data: rules, error: rulesErr } = await supabase
     .from("pricing_rules")
@@ -77,10 +90,8 @@ export async function POST(req: Request) {
 
   const breakdown: { label: string; amount_cents: number }[] = [];
 
-  // Base
   breakdown.push({ label: ct.title, amount_cents: ct.base_price_cents });
 
-  // Extra guests
   const extra = rule("EXTRA_GUEST");
   if (extra) {
     const threshold = Number(extra.threshold ?? 6);
@@ -98,7 +109,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Nobu surcharge
   if (nobu) {
     const nobuRule = rule("NOBU_FUEL");
     const applies = (nobuRule?.applies_to_slot ?? null) as Slot[] | null;
@@ -110,14 +120,13 @@ export async function POST(req: Request) {
     }
   }
 
-  // Lunch on board (per head)
   if (lunch) {
-    // Use pricing_rules if present, otherwise fallback to $50/head for now.
     const lunchRule = rule("LUNCH_ONBOARD");
     const applies = (lunchRule?.applies_to_slot ?? null) as Slot[] | null;
     const ok = !applies || applies.includes("FD");
 
-    const perHeadCents = Number(lunchRule?.amount_cents ?? 50 * 100); // fallback $50
+    const perHeadCents = Number(lunchRule?.amount_cents ?? 50 * 100);
+
     if (ok && perHeadCents > 0) {
       breakdown.push({
         label: `Lunch on board (${guests} × $${(perHeadCents / 100).toFixed(0)})`,
