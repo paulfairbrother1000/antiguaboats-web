@@ -3,15 +3,19 @@ import Link from "next/link";
 type CharterTemplateProps = {
   title: string;
   subtitle: string;
-  body: string[];
-  folder: string;
-  youtubeUrl?: string;
+  body: string[]; // paragraphs
+  folder: string; // e.g. "/charters/fullday"
+  youtubeUrl?: string; // full youtube url or youtu.be link
 
+  // Optional structured header lines (preferred)
   priceUSD?: number | null;
   hoursLine?: string;
   tagline?: string;
 
-  beforeImages?: React.ReactNode;
+  /**
+   * Optional content inserted AFTER the 2x2 Image Grid and BEFORE the YouTube section.
+   * (Used for Day charter "Lunch Options" tile.)
+   */
   afterImagesBeforeVideo?: React.ReactNode;
 };
 
@@ -21,22 +25,26 @@ function getYouTubeEmbedUrl(url?: string) {
   try {
     const u = new URL(url);
 
+    // youtu.be/<id>
     if (u.hostname.includes("youtu.be")) {
       const id = u.pathname.replace("/", "");
       return id ? `https://www.youtube.com/embed/${id}` : null;
     }
 
     if (u.hostname.includes("youtube.com")) {
+      // youtube.com/watch?v=<id>
       const v = u.searchParams.get("v");
       if (v) return `https://www.youtube.com/embed/${v}`;
 
       const parts = u.pathname.split("/").filter(Boolean);
 
+      // youtube.com/embed/<id>
       const embedIndex = parts.indexOf("embed");
       if (embedIndex >= 0 && parts[embedIndex + 1]) {
         return `https://www.youtube.com/embed/${parts[embedIndex + 1]}`;
       }
 
+      // youtube.com/live/<id>
       const liveIndex = parts.indexOf("live");
       if (liveIndex >= 0 && parts[liveIndex + 1]) {
         return `https://www.youtube.com/embed/${parts[liveIndex + 1]}`;
@@ -58,11 +66,11 @@ export default function CharterTemplate({
   priceUSD = null,
   hoursLine,
   tagline,
-  beforeImages,
   afterImagesBeforeVideo,
 }: CharterTemplateProps) {
   const embed = getYouTubeEmbedUrl(youtubeUrl);
 
+  // Standardised image paths
   const hero = `${folder}/hero.jpg`;
   const imgs = [1, 2, 3, 4].map((n) => `${folder}/img${n}.jpg`);
 
@@ -70,6 +78,7 @@ export default function CharterTemplate({
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
+      {/* Header row */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-slate-500">Charters</div>
@@ -86,8 +95,10 @@ export default function CharterTemplate({
         </Link>
       </div>
 
+      {/* Hero */}
       <section className="mt-8 overflow-hidden rounded-3xl border bg-slate-100">
         <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={hero}
             alt={title}
@@ -96,6 +107,7 @@ export default function CharterTemplate({
           />
           <div className="absolute inset-0 bg-black/35" />
 
+          {/* Title + structured header on hero */}
           <div className="absolute inset-0 flex items-end">
             <div className="p-6 md:p-10">
               <div className="text-3xl font-black tracking-tight text-white md:text-5xl">
@@ -120,22 +132,21 @@ export default function CharterTemplate({
         </div>
       </section>
 
-      {body.length > 0 ? (
-        <section className="mt-10 rounded-3xl border bg-white p-7">
-          <div className="space-y-4 text-slate-700 leading-relaxed">
-            {body.map((p, idx) => (
-              <p key={idx}>{p}</p>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {/* Body */}
+      <section className="mt-10 rounded-3xl border bg-white p-7">
+        <div className="space-y-4 text-slate-700 leading-relaxed">
+          {body.map((p, idx) => (
+            <p key={idx}>{p}</p>
+          ))}
+        </div>
+      </section>
 
-      {beforeImages ? <section className="mt-10">{beforeImages}</section> : null}
-
+      {/* 2x2 Image Grid */}
       <section className="mt-10">
         <div className="grid gap-4 sm:grid-cols-2">
           {imgs.map((src, idx) => (
             <div key={src} className="overflow-hidden rounded-3xl border bg-slate-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={src}
                 alt={`${title} image ${idx + 1}`}
@@ -147,8 +158,10 @@ export default function CharterTemplate({
         </div>
       </section>
 
+      {/* ✅ Insert optional segment here (below images, above YouTube) */}
       {afterImagesBeforeVideo ? <section className="mt-10">{afterImagesBeforeVideo}</section> : null}
 
+      {/* YouTube */}
       {embed && (
         <section className="mt-10 overflow-hidden rounded-3xl border bg-black">
           <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
@@ -163,6 +176,7 @@ export default function CharterTemplate({
         </section>
       )}
 
+      {/* Footer buttons */}
       <div className="mt-6 flex justify-center gap-3">
         <Link
           href="/booking"

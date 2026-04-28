@@ -158,7 +158,7 @@ export default async function FullDaySharedCharterPage() {
       priceUSD={priceUSD}
       hoursLine={hoursLine}
       tagline={tagline}
-      afterImagesBeforeVideo={sharedCharterTiles}
+      beforeImages={sharedCharterTiles}
     />
   );
 }
