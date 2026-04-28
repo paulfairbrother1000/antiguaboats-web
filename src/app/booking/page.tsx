@@ -146,6 +146,7 @@ export default function BookingPage() {
 
   // Step 2 state
   const [comments, setComments] = useState<string>("");
+  const [sharedFallbackChoice, setSharedFallbackChoice] = useState<string>("");
 
   // Step 3 state
   const [customerName, setCustomerName] = useState<string>("");
@@ -188,6 +189,19 @@ export default function BookingPage() {
 
   const allowExtras = selectedSlot === "FD";
   const maxGuests = selectedSlot === "SHARED_FD" ? 4 : 9;
+  const selectedSharedBookingCount =
+    selectedSlot === "SHARED_FD"
+      ? selectedDayAvail?.booked?.filter((slot) => slot === "SHARED_FD").length ?? 0
+      : 0;
+  const isSecondSharedBooking = selectedSlot === "SHARED_FD" && selectedSharedBookingCount >= 1;
+  const isFirstSharedBooking = selectedSlot === "SHARED_FD" && selectedSharedBookingCount === 0;
+
+  const privateFullDayPriceCents = charterBySlug?.["day"]?.base_price_cents ?? 0;
+  const sharedFullDayPriceCents = charterBySlug?.["full-day-shared"]?.base_price_cents ?? 0;
+  const sharedUpgradeBalanceCents = Math.max(
+    0,
+    Number(privateFullDayPriceCents) - Number(sharedFullDayPriceCents)
+  );
 
   // ✅ Fetch charter types/prices ONCE
   // Expect API to return: { by_slug: { day: {...}, "full-day-shared": {...}, "half-day": {...}, sunset: {...} } }
@@ -318,6 +332,13 @@ export default function BookingPage() {
     }
   }, [selectedSlot, guests]);
 
+  // Clear Shared Charter fallback choice where it is not needed
+  useEffect(() => {
+    if (selectedSlot !== "SHARED_FD" || isSecondSharedBooking) {
+      setSharedFallbackChoice("");
+    }
+  }, [selectedSlot, isSecondSharedBooking]);
+
   // Clamp vegan meals to 0..guests
   useEffect(() => {
     setVeganMeals((v) => {
@@ -391,6 +412,7 @@ export default function BookingPage() {
     customerName.trim().length > 1 &&
     customerEmail.trim().length > 3 &&
     acceptedTcs &&
+    !(isFirstSharedBooking && !sharedFallbackChoice) &&
     !paying;
 
   async function handleMockPay() {
@@ -413,9 +435,18 @@ export default function BookingPage() {
         optionNotes.push("Nobu trip: Yes");
       }
       if (selectedSlot === "SHARED_FD") {
-        optionNotes.push(
-          "Full Day Shared Charter: Shared booking for one group, subject to second party confirmation"
-        );
+        if (isSecondSharedBooking) {
+          optionNotes.push(
+            "Full Day Shared Charter: second shared booking received; two-booking requirement met"
+          );
+        } else {
+          optionNotes.push(
+            "Full Day Shared Charter: first shared booking; subject to second party confirmation"
+          );
+          if (sharedFallbackChoice) {
+            optionNotes.push(`Shared charter fallback choice: ${sharedFallbackChoice}`);
+          }
+        }
       }
 
       const notesCombined =
@@ -808,9 +839,9 @@ export default function BookingPage() {
 
                 {selectedSlot === "SHARED_FD" && (
                   <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
-                    This is a shared charter for your group, sharing the boat with one other booking
-                    group. The charter runs when two parties are booked for the same date. If no
-                    second party joins, your fallback option will apply 24 hours before departure.
+                    {isSecondSharedBooking
+                      ? "This is the second booking on this shared charter. The charter is confirmed to proceed upon payment receipt."
+                      : "This is a shared charter for your group, sharing the boat with one other booking group. The charter runs when two parties are booked for the same date. If no second party joins, your fallback option will apply 24 hours before departure."}
                   </div>
                 )}
               </div>
@@ -958,7 +989,9 @@ export default function BookingPage() {
                 </div>
                 {selectedSlot === "SHARED_FD" && (
                   <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
-                    Shared charter booking — subject to a second party joining the same date.
+                    {isSecondSharedBooking
+                      ? "The required 2 bookings are now confirmed for this charter."
+                      : "Shared charter booking — subject to a second party joining the same date."}
                   </div>
                 )}
                 <div className="flex justify-between gap-3">
@@ -1043,9 +1076,44 @@ export default function BookingPage() {
 
             {selectedSlot === "SHARED_FD" && (
               <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
-                For a Full Day Shared Charter, please tell us your preferred fallback if no second
-                party books the same date: refund, half-day morning, half-day afternoon, or upgrade
-                to private full day by paying the balance.
+                {isSecondSharedBooking ? (
+                  <div className="font-semibold">
+                    This is the second booking on this shared charter. The charter is confirmed to
+                    proceed upon payment receipt.
+                  </div>
+                ) : (
+                  <div>
+                    <div className="font-semibold">
+                      In the event that a second booking isn&apos;t found up to 24 hours before your
+                      trip, how would you like to respond?
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {[
+                        "Cancel the booking and receive a full refund",
+                        "Same day ½ Day Morning Charter — the entire boat at no additional cost",
+                        "Same day ½ Day Afternoon Charter — the entire boat at no additional cost",
+                        `Same day Full Day Charter, paying the balance of ${money(
+                          sharedUpgradeBalanceCents
+                        )} between the full day charter cost and the Full Day Shared Charter`,
+                      ].map((choice) => (
+                        <label
+                          key={choice}
+                          className="flex cursor-pointer items-start gap-3 rounded-xl border border-sky-200 bg-white/70 p-3 text-sm text-sky-950"
+                        >
+                          <input
+                            type="radio"
+                            name="sharedFallbackChoice"
+                            className="mt-1 h-4 w-4"
+                            checked={sharedFallbackChoice === choice}
+                            onChange={() => setSharedFallbackChoice(choice)}
+                          />
+                          <span>{choice}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1057,7 +1125,7 @@ export default function BookingPage() {
                 rows={5}
                 placeholder={
                   selectedSlot === "SHARED_FD"
-                    ? "e.g. If no second party books, we prefer a refund / half-day morning / half-day afternoon / upgrade to private full day…"
+                    ? "Any other notes for the crew or booking team…"
                     : "e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
                 }
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
@@ -1075,12 +1143,19 @@ export default function BookingPage() {
               </button>
               <button
                 type="button"
+                disabled={isFirstSharedBooking && !sharedFallbackChoice}
                 onClick={() => {
+                  if (isFirstSharedBooking && !sharedFallbackChoice) return;
                   setPayError("");
                   setBookingId("");
                   setStep(3);
                 }}
-                className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-95"
+                className={[
+                  "rounded-2xl px-5 py-3 font-semibold text-white",
+                  isFirstSharedBooking && !sharedFallbackChoice
+                    ? "bg-slate-300 cursor-not-allowed"
+                    : "bg-slate-900 hover:opacity-95",
+                ].join(" ")}
               >
                 Continue
               </button>
@@ -1140,7 +1215,9 @@ export default function BookingPage() {
                 </div>
                 {selectedSlot === "SHARED_FD" && (
                   <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
-                    Shared charter booking — subject to second party confirmation.
+                    {isSecondSharedBooking
+                      ? "The required 2 bookings are now confirmed for this charter."
+                      : "Shared charter booking — subject to second party confirmation."}
                   </div>
                 )}
                 <div>
@@ -1151,6 +1228,12 @@ export default function BookingPage() {
                   <span className="text-slate-600">Comments:</span>{" "}
                   <span className="font-semibold">{comments?.trim() ? "Included" : "—"}</span>
                 </div>
+                {selectedSlot === "SHARED_FD" && !isSecondSharedBooking && (
+                  <div>
+                    <span className="text-slate-600">Fallback choice:</span>{" "}
+                    <span className="font-semibold">{sharedFallbackChoice || "—"}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-slate-600">Total:</span>{" "}
                   <span className="font-semibold">{totalCents ? money(totalCents) : "—"}</span>
