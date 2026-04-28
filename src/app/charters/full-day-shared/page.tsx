@@ -74,38 +74,22 @@ export default async function FullDaySharedCharterPage() {
         </h2>
 
         <div className="mt-4 space-y-4 text-slate-700 leading-relaxed">
-          <p>
-            A Shared Charter booking can be challenging to manage because they need multiple parties
-            to charter the boat at the same time.
-          </p>
+          
+         
 
           <p>
-            We approach this challenge as follows to try to give you the best experience possible.
-          </p>
-
-          <p>
-            A Shared Charter will only run if 2 parties book the shared charter on the same date.
-          </p>
-
-          <p>
-            With 24 hours to go before the booking we check to see if there is a second booking on
-            the shared charter. If there is not, the charter is cancelled, and you are refunded.
-          </p>
-
-          <p>
-            At the time of booking, we ask you what you would like to do in this scenario. We then
+            At the time of booking, we ask you what you would like to do in if another party doesn't share the charter with you. We then
             automatically implement your choice 24 hours ahead of the booking.
           </p>
 
           <p>
-            At the time of booking, we will ask, in the event there is no second booking for the
-            charter, please choose your response from the following:
+            At the time of booking, we ask for your preference in the event that no other booking shares your charter. You may choose from:, :
           </p>
 
           <ul className="list-disc space-y-2 pl-6">
             <li>Cancel the booking and receive a full refund</li>
             <li>
-              Enjoy the{" "}
+              Same day {" "}
               <Link
                 href="/charters/half-day"
                 className="font-semibold text-sky-700 hover:text-sky-800"
@@ -115,7 +99,7 @@ export default async function FullDaySharedCharterPage() {
               — the entire boat at no additional cost
             </li>
             <li>
-              Enjoy the{" "}
+              Same day {" "}
               <Link
                 href="/charters/half-day"
                 className="font-semibold text-sky-700 hover:text-sky-800"
@@ -125,7 +109,7 @@ export default async function FullDaySharedCharterPage() {
               — the entire boat at no additional cost
             </li>
             <li>
-              Book the{" "}
+              Same day {" "}
               <Link href="/charters/day" className="font-semibold text-sky-700 hover:text-sky-800">
                 Full Day Charter
               </Link>
