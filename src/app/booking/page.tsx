@@ -6,10 +6,11 @@ import { DayPicker } from "react-day-picker";
 // IMPORTANT: do NOT import the default RDP stylesheet (it keeps fighting our layout)
 // import "react-day-picker/dist/style.css";
 
-type Slot = "FD" | "AM" | "PM" | "SS";
+type Slot = "FD" | "SHARED_FD" | "AM" | "PM" | "SS";
 
 const SLOT_LABEL: Record<Slot, string> = {
   FD: "Full Day Charter",
+  SHARED_FD: "Full Day Shared Charter",
   AM: "½ Day (Morning)",
   PM: "½ Day (Afternoon)",
   SS: "Sunset Cruise",
@@ -20,8 +21,9 @@ const NOBU_FUEL_CENTS = 200 * 100;
 const LUNCH_PER_HEAD_CENTS = 50 * 100;
 
 // ✅ Map booking slot_modes to your existing charter_types slugs (source of truth)
-const SLOT_TO_SLUG: Record<Slot, "day" | "half-day" | "sunset"> = {
+const SLOT_TO_SLUG: Record<Slot, "day" | "full-day-shared" | "half-day" | "sunset"> = {
   FD: "day",
+  SHARED_FD: "full-day-shared",
   AM: "half-day",
   PM: "half-day",
   SS: "sunset",
@@ -67,7 +69,7 @@ function endOfDay(d: Date) {
   return x;
 }
 
-// ✅ DB is slug-driven (day / half-day / sunset), so store prices by slug
+// ✅ DB is slug-driven (day / full-day-shared / half-day / sunset), so store prices by slug
 type CharterBySlug = Record<string, { title: string; base_price_cents: number; currency: string }>;
 
 export default function BookingPage() {
@@ -125,8 +127,10 @@ export default function BookingPage() {
     return x;
   }, [today]);
 
+  const allowExtras = selectedSlot === "FD";
+
   // ✅ Fetch charter types/prices ONCE
-  // Expect API to return: { by_slug: { day: {...}, "half-day": {...}, sunset: {...} } }
+  // Expect API to return: { by_slug: { day: {...}, "full-day-shared": {...}, "half-day": {...}, sunset: {...} } }
   useEffect(() => {
     setLoadingCharterTypes(true);
     fetch("/api/charter-types")
@@ -193,7 +197,7 @@ export default function BookingPage() {
     if (!day) return "unknown";
     const count = day.available?.length ?? 0;
     if (count === 0) return "unavailable";
-    if (count === 4) return "available";
+    if (count === Object.keys(SLOT_LABEL).length) return "available";
     return "partial";
   };
 
@@ -250,8 +254,8 @@ export default function BookingPage() {
       return;
     }
 
-    const lunchOk = selectedSlot === "FD" ? lunch : false;
-    const nobuOk = selectedSlot === "FD" ? nobu : false;
+    const lunchOk = allowExtras ? lunch : false;
+    const nobuOk = allowExtras ? nobu : false;
     const veganOk = lunchOk ? veganMeals : 0;
 
     setLoadingQuote(true);
@@ -269,7 +273,7 @@ export default function BookingPage() {
       .then((r) => r.json())
       .then((data) => setQuote(data?.total_amount_cents ? data : null))
       .finally(() => setLoadingQuote(false));
-  }, [selectedSlot, guests, nobu, lunch, veganMeals]);
+  }, [selectedSlot, guests, nobu, lunch, veganMeals, allowExtras]);
 
   const canContinue =
     !!selectedDate && !!selectedSlot && !!selectedDayAvail?.available.includes(selectedSlot);
@@ -287,8 +291,8 @@ export default function BookingPage() {
 
   const extraGuestsCount = Math.max(0, guests - 6);
   const extraGuestsCents = extraGuestsCount * EXTRA_GUEST_CENTS;
-  const nobuCents = selectedSlot === "FD" && nobu ? NOBU_FUEL_CENTS : 0;
-  const lunchCents = selectedSlot === "FD" && lunch ? guests * LUNCH_PER_HEAD_CENTS : 0;
+  const nobuCents = allowExtras && nobu ? NOBU_FUEL_CENTS : 0;
+  const lunchCents = allowExtras && lunch ? guests * LUNCH_PER_HEAD_CENTS : 0;
   const extrasCents = extraGuestsCents + nobuCents + lunchCents;
 
   // Prefer API quote total if present, else fall back to local calc
@@ -318,11 +322,16 @@ export default function BookingPage() {
       setPaying(true);
 
       const optionNotes: string[] = [];
-      if (selectedSlot === "FD" && lunch) {
+      if (allowExtras && lunch) {
         optionNotes.push(`Lunch on board: Yes (${guests} meals, vegan: ${veganMeals})`);
       }
-      if (selectedSlot === "FD" && nobu) {
+      if (allowExtras && nobu) {
         optionNotes.push("Nobu trip: Yes");
+      }
+      if (selectedSlot === "SHARED_FD") {
+        optionNotes.push(
+          "Full Day Shared Charter: Shared booking for one group, subject to second party confirmation"
+        );
       }
 
       const notesCombined =
@@ -335,8 +344,12 @@ export default function BookingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date: isoDate(selectedDate),
-          slot: selectedSlot, // FD|AM|PM|SS
+          slot_mode: selectedSlot, // FD|SHARED_FD|AM|PM|SS
+          slot: selectedSlot, // Backwards-compatible with existing booking API if it still expects "slot"
           guests,
+          nobu: allowExtras ? nobu : false,
+          lunch: allowExtras ? lunch : false,
+          vegan_meals: allowExtras ? veganMeals : 0,
           total_amount_cents: totalCents,
           currency: "USD",
           customer_name: customerName.trim(),
@@ -672,7 +685,20 @@ export default function BookingPage() {
                           ].join(" ")}
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <div className="font-semibold">{SLOT_LABEL[slot]}</div>
+                            <div>
+                              <div className="font-semibold">{SLOT_LABEL[slot]}</div>
+                              {slot === "SHARED_FD" && (
+                                <div
+                                  className={
+                                    selected
+                                      ? "mt-1 text-xs text-white/80"
+                                      : "mt-1 text-xs text-sky-700"
+                                  }
+                                >
+                                  Shared with one other group
+                                </div>
+                              )}
+                            </div>
                             <div className={selected ? "text-white" : "text-slate-900"}>
                               <span className="text-base font-semibold">
                                 {priceCents !== null ? money(priceCents) : "—"}
@@ -685,6 +711,14 @@ export default function BookingPage() {
                         </button>
                       );
                     })}
+                  </div>
+                )}
+
+                {selectedSlot === "SHARED_FD" && (
+                  <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                    This is a shared charter for your group, sharing the boat with one other booking
+                    group. The charter runs when two parties are booked for the same date. If no
+                    second party joins, your fallback option will apply 24 hours before departure.
                   </div>
                 )}
               </div>
@@ -718,74 +752,92 @@ export default function BookingPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-sm font-semibold">Options</div>
 
-                  {/* Nobu */}
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold">Nobu trip</div>
-                      <div className="text-sm text-slate-600">
-                        {money(NOBU_FUEL_CENTS)} fuel surcharge
-                      </div>
+                  {selectedSlot === "SHARED_FD" ? (
+                    <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+                      Nobu and Lunch on Board options are not available on Full Day Shared Charter.
                     </div>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5"
-                      checked={nobu}
-                      onChange={(e) => setNobu(e.target.checked)}
-                      disabled={selectedSlot !== "FD"}
-                      title={selectedSlot !== "FD" ? "Nobu is only available on Full Day Charter" : ""}
-                    />
-                  </div>
-
-                  {/* Lunch */}
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold">Lunch on board</div>
-                      <div className="text-sm text-slate-600">
-                        {money(LUNCH_PER_HEAD_CENTS)} per head
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5"
-                      checked={lunch}
-                      onChange={(e) => setLunch(e.target.checked)}
-                      disabled={selectedSlot !== "FD"}
-                      title={selectedSlot !== "FD" ? "Lunch is only available on Full Day Charter" : ""}
-                    />
-                  </div>
-
-                  {selectedSlot === "FD" && lunch && (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="text-sm font-semibold text-slate-900">Vegan meals</label>
+                  ) : (
+                    <>
+                      {/* Nobu */}
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">Nobu trip</div>
+                          <div className="text-sm text-slate-600">
+                            {money(NOBU_FUEL_CENTS)} fuel surcharge
+                          </div>
+                        </div>
                         <input
-                          type="number"
-                          min={0}
-                          max={guests}
-                          value={veganMeals}
-                          onChange={(e) => {
-                            const v = Number(e.target.value);
-                            if (!Number.isFinite(v)) {
-                              setVeganMeals(0);
-                              return;
-                            }
-                            setVeganMeals(Math.max(0, Math.min(guests, Math.floor(v))));
-                          }}
-                          className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300"
+                          type="checkbox"
+                          className="h-5 w-5"
+                          checked={nobu}
+                          onChange={(e) => setNobu(e.target.checked)}
+                          disabled={selectedSlot !== "FD"}
+                          title={
+                            selectedSlot !== "FD"
+                              ? "Nobu is only available on Full Day Charter"
+                              : ""
+                          }
                         />
                       </div>
-                      <div className="mt-2 text-xs text-slate-600">
-                        Total meals: <span className="font-semibold">{guests}</span> • Vegan:{" "}
-                        <span className="font-semibold">{veganMeals}</span> • Standard:{" "}
-                        <span className="font-semibold">{Math.max(0, guests - veganMeals)}</span>
-                      </div>
-                    </div>
-                  )}
 
-                  {selectedSlot !== "FD" && (
-                    <div className="mt-2 text-xs text-slate-500">
-                      Available on Full Day Charter only.
-                    </div>
+                      {/* Lunch */}
+                      <div className="mt-4 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">Lunch on board</div>
+                          <div className="text-sm text-slate-600">
+                            {money(LUNCH_PER_HEAD_CENTS)} per head
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5"
+                          checked={lunch}
+                          onChange={(e) => setLunch(e.target.checked)}
+                          disabled={selectedSlot !== "FD"}
+                          title={
+                            selectedSlot !== "FD"
+                              ? "Lunch is only available on Full Day Charter"
+                              : ""
+                          }
+                        />
+                      </div>
+
+                      {selectedSlot === "FD" && lunch && (
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="text-sm font-semibold text-slate-900">
+                              Vegan meals
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={guests}
+                              value={veganMeals}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                if (!Number.isFinite(v)) {
+                                  setVeganMeals(0);
+                                  return;
+                                }
+                                setVeganMeals(Math.max(0, Math.min(guests, Math.floor(v))));
+                              }}
+                              className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300"
+                            />
+                          </div>
+                          <div className="mt-2 text-xs text-slate-600">
+                            Total meals: <span className="font-semibold">{guests}</span> • Vegan:{" "}
+                            <span className="font-semibold">{veganMeals}</span> • Standard:{" "}
+                            <span className="font-semibold">{Math.max(0, guests - veganMeals)}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedSlot !== "FD" && (
+                        <div className="mt-2 text-xs text-slate-500">
+                          Available on Full Day Charter only.
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -806,6 +858,11 @@ export default function BookingPage() {
                     {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
                   </span>
                 </div>
+                {selectedSlot === "SHARED_FD" && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+                    Shared charter booking — subject to a second party joining the same date.
+                  </div>
+                )}
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-600">Guests</span>
                   <span className="font-semibold">{guests}</span>
@@ -826,9 +883,10 @@ export default function BookingPage() {
                 {selectedSlot && (
                   <div className="text-xs text-slate-500">
                     {extraGuestsCount > 0 ? `+${extraGuestsCount} extra guest(s)` : "No extra guests"}
-                    {selectedSlot === "FD" && nobu ? " • Nobu fuel surcharge" : ""}
-                    {selectedSlot === "FD" && lunch ? ` • Lunch on board (${guests} meals)` : ""}
-                    {selectedSlot === "FD" && lunch && veganMeals > 0 ? ` • Vegan: ${veganMeals}` : ""}
+                    {allowExtras && nobu ? " • Nobu fuel surcharge" : ""}
+                    {allowExtras && lunch ? ` • Lunch on board (${guests} meals)` : ""}
+                    {allowExtras && lunch && veganMeals > 0 ? ` • Vegan: ${veganMeals}` : ""}
+                    {selectedSlot === "SHARED_FD" ? " • No Nobu or Lunch extras" : ""}
                   </div>
                 )}
               </div>
@@ -885,13 +943,25 @@ export default function BookingPage() {
               Add any questions or useful context (occasion, timings, preferences, etc).
             </p>
 
+            {selectedSlot === "SHARED_FD" && (
+              <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                For a Full Day Shared Charter, please tell us your preferred fallback if no second
+                party books the same date: refund, half-day morning, half-day afternoon, or upgrade
+                to private full day by paying the balance.
+              </div>
+            )}
+
             <div className="mt-6">
               <label className="text-sm font-semibold text-slate-900">Comments</label>
               <textarea
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
                 rows={5}
-                placeholder="e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
+                placeholder={
+                  selectedSlot === "SHARED_FD"
+                    ? "e.g. If no second party books, we prefer a refund / half-day morning / half-day afternoon / upgrade to private full day…"
+                    : "e.g. celebrating a birthday, preferred departure time, music, food, itinerary…"
+                }
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               />
               <div className="mt-2 text-xs text-slate-500">We’ll save this with your booking request.</div>
@@ -970,6 +1040,11 @@ export default function BookingPage() {
                     {selectedSlot ? SLOT_LABEL[selectedSlot] : "—"}
                   </span>
                 </div>
+                {selectedSlot === "SHARED_FD" && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+                    Shared charter booking — subject to second party confirmation.
+                  </div>
+                )}
                 <div>
                   <span className="text-slate-600">Guests:</span>{" "}
                   <span className="font-semibold">{guests}</span>
