@@ -15,12 +15,6 @@ const charterTiles: CharterTile[] = [
     imageSrc: "/DayCharter.jpeg",
   },
   {
-    title: "Full Day Shared Charter",
-    desc: "10:00–17:00 • Full day adventure around Antigua for a group of up to 4 people sharing the charter with another group of up to 4 people.",
-    slug: "full-day-shared",
-    imageSrc: "/DayCharter.jpeg",
-  },
-  {
     title: "½ Day Charter",
     desc: "09:30–13:00 or 14:00–17:30 • Quick island escape",
     slug: "half-day",
@@ -31,6 +25,12 @@ const charterTiles: CharterTile[] = [
     desc: "16:30–18:30 • Golden hour magic",
     slug: "sunset",
     imageSrc: "/sunset.jpeg",
+  },
+  {
+    title: "Full Day Shared Charter",
+    desc: "10:00–17:00 • Full day adventure around Antigua for a group of up to 4 people sharing the charter with another group of up to 4 people.",
+    slug: "full-day-shared",
+    imageSrc: "/DayCharter.jpeg",
   },
   {
     title: "Restaurant Shuttle",
@@ -45,10 +45,8 @@ export const dynamic = "force-dynamic";
 export default function ChartersPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      {/* HERO */}
       <section className="-mx-4 overflow-hidden rounded-3xl border bg-slate-100 md:mx-0">
         <div className="relative">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/charter-hero.jpeg"
             alt="Antigua & Barbuda charter hero"
@@ -67,7 +65,6 @@ export default function ChartersPage() {
         </div>
       </section>
 
-      {/* INTRO COPY */}
       <section className="mt-10">
         <h2 className="text-xl font-extrabold text-slate-900 md:text-2xl">
           There are few pleasures in life that compare to a luxury charter in the turquoise waters of Antigua &amp;
@@ -97,26 +94,27 @@ export default function ChartersPage() {
         </div>
       </section>
 
-      {/* CHARTER OPTIONS */}
       <section className="mt-10">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {charterTiles.map((tile) => (
             <div key={tile.slug} className="overflow-hidden rounded-3xl border bg-white">
               <Link href={`/charters/${tile.slug}`} className="block">
-                <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={tile.imageSrc}
-                    alt={tile.title}
-                    className="h-40 w-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
+                <img
+                  src={tile.imageSrc}
+                  alt={tile.title}
+                  className="h-40 w-full object-cover"
+                  loading="lazy"
+                />
               </Link>
 
               <div className="p-5">
-                <div className="text-base font-extrabold text-slate-900">{tile.title}</div>
-                <div className="mt-1 text-sm text-slate-600">{tile.desc}</div>
+                <div className="text-base font-extrabold text-slate-900">
+                  {tile.title}
+                </div>
+
+                <div className="mt-1 text-sm text-slate-600">
+                  {tile.desc}
+                </div>
 
                 <div className="mt-4">
                   <Link

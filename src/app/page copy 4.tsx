@@ -1,39 +1,7 @@
 import Link from "next/link";
 import GalleryCarousel from "@/components/GalleryCarousel";
+import CharterTiles from "@/components/CharterTiles";
 import { SILVER_LADY_PHOTOS } from "@/lib/silverLadyPhotos";
-
-const charterTiles = [
-  {
-    title: "Full Day Charter",
-    desc: "10:00–17:00 • Full day adventure around Antigua",
-    slug: "day",
-    imageSrc: "/DayCharter.jpeg",
-  },
-  {
-    title: "½ Day Charter",
-    desc: "09:30–13:00 or 14:00–17:30 • Quick island escape",
-    slug: "half-day",
-    imageSrc: "/HalfDayCharter.jpeg",
-  },
-  {
-    title: "Sunset Cruise",
-    desc: "16:30–18:30 • Golden hour magic",
-    slug: "sunset",
-    imageSrc: "/sunset.jpeg",
-  },
-  {
-    title: "Full Day Shared Charter",
-    desc: "10:00–17:00 • Shared full day adventure for up to 4 people",
-    slug: "full-day-shared",
-    imageSrc: "/DayCharter.jpeg",
-  },
-  {
-    title: "Restaurant Shuttle",
-    desc: "Nobu & more • Arrive by sea (on request)",
-    slug: "restaurant-shuttle",
-    imageSrc: "/ShuttleCharter.jpeg",
-  },
-];
 
 export default function HomePage() {
   return (
@@ -43,6 +11,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-4">
           <div className="overflow-hidden rounded-3xl border shadow-sm">
             <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/antigua-hero.jpg"
                 alt="Antigua waters"
@@ -83,10 +52,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* MEET ANTIGUA BOATS */}
+      {/* MEET ANTIGUA BOATS (new section, before Silver Lady) */}
       <section className="py-6">
         <div className="mx-auto max-w-6xl px-4">
           <div className="rounded-3xl border bg-white p-7">
+            <div className="mb-2 -mt-3 flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/antigua-boats-logo.png"
+                alt="Antigua Boats"
+                className="h-36 w-auto md:h-40"
+              />
+            </div>
+
             <h2 className="text-3xl font-extrabold text-slate-900">Meet Antigua Boats</h2>
 
             <div className="mt-4 space-y-4 text-slate-700 leading-relaxed">
@@ -110,7 +88,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* MEET SILVER LADY */}
+      {/* MEET SILVER LADY (kept, with added paragraph before carousel) */}
       <section className="py-10">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-end justify-between gap-4">
@@ -131,6 +109,7 @@ export default function HomePage() {
             </Link>
           </div>
 
+          {/* New paragraph BEFORE carousel */}
           <div className="mt-5 rounded-3xl border bg-white p-7">
             <p className="text-slate-700 leading-relaxed">
               Silver Lady is a Nor-Tech 390 designed for the Caribbean — thrilling performance when
@@ -150,6 +129,7 @@ export default function HomePage() {
             />
           </div>
 
+          {/* Buttons under carousel */}
           <div className="mt-6 flex justify-center gap-3">
             <Link
               href="/booking"
@@ -167,7 +147,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* YOUTUBE VIDEO */}
+      {/* YOUTUBE VIDEO (inserted before "Choose your charter" section inside CharterTiles) */}
       <section className="py-10">
         <div className="mx-auto max-w-6xl px-4">
           <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
@@ -186,43 +166,7 @@ export default function HomePage() {
       </section>
 
       {/* CHARTER TILES */}
-      <section className="py-10">
-        <div className="mx-auto max-w-6xl px-4">
-          <h2 className="text-3xl font-extrabold text-slate-900">Choose your charter</h2>
-          <p className="mt-2 text-slate-600">
-            From full day adventures to sunset cruises and restaurant shuttles.
-          </p>
-
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            {charterTiles.map((tile) => (
-              <div key={tile.slug} className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-                <Link href={`/charters/${tile.slug}`} className="block">
-                  <img
-                    src={tile.imageSrc}
-                    alt={tile.title}
-                    className="h-40 w-full object-cover"
-                    loading="lazy"
-                  />
-                </Link>
-
-                <div className="p-5">
-                  <div className="text-base font-extrabold text-slate-900">{tile.title}</div>
-                  <div className="mt-2 text-sm text-slate-600">{tile.desc}</div>
-
-                  <div className="mt-4">
-                    <Link
-                      href={`/charters/${tile.slug}`}
-                      className="inline-flex items-center gap-2 text-sm font-bold text-sky-700 hover:text-sky-800"
-                    >
-                      More info <span aria-hidden>→</span>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <CharterTiles />
     </main>
   );
 }
