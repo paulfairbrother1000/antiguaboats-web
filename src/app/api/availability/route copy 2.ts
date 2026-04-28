@@ -6,7 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-type Slot = "FD" | "SHARED_FD" | "AM" | "PM" | "SS";
+type Slot = "FD" | "AM" | "PM" | "SS";
+const ALL_SLOTS: Slot[] = ["FD", "AM", "PM", "SS"];
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -14,41 +15,37 @@ function isoDate(d: Date) {
 
 function toSlot(slug: unknown): Slot | undefined {
   if (typeof slug !== "string") return undefined;
-
-  const s = slug.trim().toLowerCase();
-
-  if (s === "day" || s === "fd" || s === "full-day") return "FD";
-  if (s === "full-day-shared" || s === "shared-fd" || s === "shared_fd") return "SHARED_FD";
-  if (s === "am" || s === "half-day-am") return "AM";
-  if (s === "pm" || s === "half-day-pm") return "PM";
-  if (s === "ss" || s === "sunset" || s === "sunset-cruise") return "SS";
-
-  return undefined;
+  const s = slug.trim().toUpperCase();
+  return s === "FD" || s === "AM" || s === "PM" || s === "SS" ? (s as Slot) : undefined;
 }
 
 function computeAvailable(booked: Slot[]): Slot[] {
   const has = (s: Slot) => booked.includes(s);
-  const sharedCount = booked.filter((s) => s === "SHARED_FD").length;
 
-  // Private full day blocks everything
+  // Full day booked blocks everything
   if (has("FD")) return [];
 
-  // Shared full day logic:
-  // 1 booking = second shared place still available
-  // 2 bookings = sold out
-  if (sharedCount >= 2) return [];
-  if (sharedCount === 1) return ["SHARED_FD"];
+  // If anything is booked, you can never sell a Full Day
+  const anyHalfOrSunsetBooked = has("AM") || has("PM") || has("SS");
 
-  // If any half day/sunset is booked, shared/full day can't be sold
+  // If AM+PM or AM+SS combos are already booked, sold out
   if (has("AM") && has("PM")) return [];
   if (has("AM") && has("SS")) return [];
 
-  if (has("PM")) return ["AM"];
-  if (has("SS")) return ["AM"];
+  // PM booked => only AM can be sold
+  if (has("PM")) return has("AM") ? [] : ["AM"];
+
+  // SS booked => only AM can be sold
+  if (has("SS")) return has("AM") ? [] : ["AM"];
+
+  // AM booked => can sell PM or SS (not FD)
   if (has("AM")) return ["PM", "SS"];
 
-  // Nothing booked = all options available, including shared full day
-  return ["FD", "AM", "PM", "SS", "SHARED_FD"];
+  // Nothing booked => everything available
+  if (!anyHalfOrSunsetBooked) return ["FD", "AM", "PM", "SS"];
+
+  // Fallback (shouldn't happen)
+  return [];
 }
 
 export async function GET(req: Request) {
@@ -60,15 +57,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "from and to parameters are required" }, { status: 400 });
   }
 
+  // Build date list (inclusive)
   const days: string[] = [];
   let cursor = new Date(from + "T00:00:00Z");
   const end = new Date(to + "T00:00:00Z");
-
   while (cursor <= end) {
     days.push(isoDate(cursor));
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
+  // Fetch bookings in range (ignore cancelled)
   const { data, error } = await supabase
     .from("bookings")
     .select(
@@ -92,6 +90,7 @@ export async function GET(req: Request) {
   for (const b of (data ?? []) as any[]) {
     const date = isoDate(new Date(b.start_at));
 
+    // Relationship can be object or array depending on Supabase typing
     const ct = b.charter_types;
     const slugRaw = Array.isArray(ct) ? ct?.[0]?.slug : ct?.slug;
 
