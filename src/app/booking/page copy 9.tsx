@@ -7,7 +7,6 @@ import { DayPicker } from "react-day-picker";
 // import "react-day-picker/dist/style.css";
 
 type Slot = "FD" | "SHARED_FD" | "AM" | "PM" | "SS";
-type SharedFallbackChoice = "CANCEL_REFUND" | "HALF_DAY_AM" | "HALF_DAY_PM" | "FULL_DAY_UPGRADE";
 
 const SLOT_LABEL: Record<Slot, string> = {
   FD: "Full Day Charter",
@@ -16,13 +15,6 @@ const SLOT_LABEL: Record<Slot, string> = {
   PM: "½ Day (Afternoon)",
   SS: "Sunset Cruise",
 };
-
-const SHARED_FALLBACK_OPTIONS: { value: SharedFallbackChoice; label: string }[] = [
-  { value: "CANCEL_REFUND", label: "Cancel the booking and receive a full refund" },
-  { value: "HALF_DAY_AM", label: "Same day ½ Day Morning Charter — the entire boat at no additional cost" },
-  { value: "HALF_DAY_PM", label: "Same day ½ Day Afternoon Charter — the entire boat at no additional cost" },
-  { value: "FULL_DAY_UPGRADE", label: "Same day Full Day Charter, paying the balance" },
-];
 
 const EXTRA_GUEST_CENTS = 50 * 100; // guests 7–9
 const NOBU_FUEL_CENTS = 200 * 100;
@@ -112,14 +104,6 @@ function money(cents: number) {
   return `$${(cents / 100).toFixed(0)}`;
 }
 
-function isBeforeToday(date: Date, today: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const t = new Date(today);
-  t.setHours(0, 0, 0, 0);
-  return d < t;
-}
-
 type DayAvail = {
   date: string; // YYYY-MM-DD
   booked: Slot[];
@@ -155,7 +139,6 @@ export default function BookingPage() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
   const [guests, setGuests] = useState<number>(6);
   const [nobu, setNobu] = useState<boolean>(false);
-  const [pastDateMessage, setPastDateMessage] = useState<string>("");
 
   // Lunch options (FD only)
   const [lunch, setLunch] = useState<boolean>(false);
@@ -163,7 +146,7 @@ export default function BookingPage() {
 
   // Step 2 state
   const [comments, setComments] = useState<string>("");
-  const [sharedFallbackChoice, setSharedFallbackChoice] = useState<SharedFallbackChoice | "">("");
+  const [sharedFallbackChoice, setSharedFallbackChoice] = useState<string>("");
 
   // Step 3 state
   const [customerName, setCustomerName] = useState<string>("");
@@ -461,8 +444,7 @@ export default function BookingPage() {
             "Full Day Shared Charter: first shared booking; subject to second party confirmation"
           );
           if (sharedFallbackChoice) {
-            const fallbackLabel = SHARED_FALLBACK_OPTIONS.find((x) => x.value === sharedFallbackChoice)?.label;
-            optionNotes.push(`Shared charter fallback choice: ${fallbackLabel ?? sharedFallbackChoice}`);
+            optionNotes.push(`Shared charter fallback choice: ${sharedFallbackChoice}`);
           }
         }
       }
@@ -489,7 +471,6 @@ export default function BookingPage() {
           customer_email: customerEmail.trim(),
           customer_phone: customerPhone.trim() || null,
           notes: notesCombined,
-          shared_fallback_choice: selectedSlot === "SHARED_FD" ? sharedFallbackChoice || null : null,
         }),
       });
 
@@ -640,16 +621,8 @@ export default function BookingPage() {
           cursor: not-allowed;
         }
 
-        .ab-rdp .ab-past .rdp-day_button {
-          background: #f8fafc;
-          border-color: #e2e8f0;
-          color: #cbd5e1;
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
         .ab-rdp .rdp-day_today .rdp-day_button {
-          box-shadow: 0 0 0 3px #0f172a inset;
+          box-shadow: 0 0 0 2px #cbd5e1 inset;
         }
 
         .ab-rdp .rdp-day_selected .rdp-day_button {
@@ -717,7 +690,6 @@ export default function BookingPage() {
                   selected={selectedDate}
                   onSelect={(d) => {
                     setSelectedDate(d);
-                    setPastDateMessage("");
                     // no pre-select / no leading
                     setSelectedSlot(undefined);
                     setNobu(false);
@@ -726,11 +698,6 @@ export default function BookingPage() {
                     setQuote(null);
                     setPayError("");
                     setBookingId("");
-                  }}
-                  onDayClick={(d) => {
-                    if (isBeforeToday(d, today)) {
-                      setPastDateMessage("There are no available charters in the past.");
-                    }
                   }}
                   month={month}
                   onMonthChange={setMonth}
@@ -741,14 +708,12 @@ export default function BookingPage() {
                   toMonth={maxVisibleMonth}
                   fromMonth={startOfMonth(today)}
                   modifiers={{
-                    past: (date) => isBeforeToday(date, today),
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
                     sharedPartial: (date) => dayClass(date) === "shared-partial",
                     available: (date) => dayClass(date) === "available",
                   }}
                   modifiersClassNames={{
-                    past: "ab-past",
                     unavailable: "ab-unavailable",
                     partial: "ab-partial",
                     sharedPartial: "ab-shared-partial",
@@ -756,12 +721,6 @@ export default function BookingPage() {
                   }}
                 />
               </div>
-
-              {pastDateMessage && (
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                  {pastDateMessage}
-                </div>
-              )}
 
               {/* Selected day availability summary */}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
@@ -1130,30 +1089,28 @@ export default function BookingPage() {
                     </div>
 
                     <div className="mt-4 space-y-3">
-                      {SHARED_FALLBACK_OPTIONS.map((option) => {
-                        const label =
-                          option.value === "FULL_DAY_UPGRADE"
-                            ? `${option.label} of ${money(
-                                sharedUpgradeBalanceCents
-                              )} between the full day charter cost and the Full Day Shared Charter`
-                            : option.label;
-
-                        return (
-                          <label
-                            key={option.value}
-                            className="flex cursor-pointer items-start gap-3 rounded-xl border border-sky-200 bg-white/70 p-3 text-sm text-sky-950"
-                          >
-                            <input
-                              type="radio"
-                              name="sharedFallbackChoice"
-                              className="mt-1 h-4 w-4"
-                              checked={sharedFallbackChoice === option.value}
-                              onChange={() => setSharedFallbackChoice(option.value)}
-                            />
-                            <span>{label}</span>
-                          </label>
-                        );
-                      })}
+                      {[
+                        "Cancel the booking and receive a full refund",
+                        "Same day ½ Day Morning Charter — the entire boat at no additional cost",
+                        "Same day ½ Day Afternoon Charter — the entire boat at no additional cost",
+                        `Same day Full Day Charter, paying the balance of ${money(
+                          sharedUpgradeBalanceCents
+                        )} between the full day charter cost and the Full Day Shared Charter`,
+                      ].map((choice) => (
+                        <label
+                          key={choice}
+                          className="flex cursor-pointer items-start gap-3 rounded-xl border border-sky-200 bg-white/70 p-3 text-sm text-sky-950"
+                        >
+                          <input
+                            type="radio"
+                            name="sharedFallbackChoice"
+                            className="mt-1 h-4 w-4"
+                            checked={sharedFallbackChoice === choice}
+                            onChange={() => setSharedFallbackChoice(choice)}
+                          />
+                          <span>{choice}</span>
+                        </label>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1274,9 +1231,7 @@ export default function BookingPage() {
                 {selectedSlot === "SHARED_FD" && !isSecondSharedBooking && (
                   <div>
                     <span className="text-slate-600">Fallback choice:</span>{" "}
-                    <span className="font-semibold">
-                      {SHARED_FALLBACK_OPTIONS.find((x) => x.value === sharedFallbackChoice)?.label || "—"}
-                    </span>
+                    <span className="font-semibold">{sharedFallbackChoice || "—"}</span>
                   </div>
                 )}
                 <div>
