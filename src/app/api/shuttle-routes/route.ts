@@ -21,12 +21,16 @@ function must(name: string): string {
 
 export async function GET() {
   try {
-    const BASE_URL = must("PACE_PARTNER_BASE_URL").replace(/\/$/, "");
+    const paceBase = new URL(must("PACE_PARTNER_BASE_URL"));
+    const allowedHosts = new Set(["paceshuttles.com", "www.paceshuttles.com"]);
+    if (paceBase.protocol !== "https:" || !allowedHosts.has(paceBase.hostname.toLowerCase())) {
+      throw new Error("PACE_PARTNER_BASE_URL must use the Pace Shuttles HTTPS production host");
+    }
     // Keep the already-provisioned secret; its legacy env name is internal to
     // Antigua Boats and is not part of the Pace V2 HTTP contract.
     const API_KEY = must("PACE_OPERATOR_KEY");
 
-    const url = `${BASE_URL}/api/public/partner/shuttle-routes`;
+    const url = new URL("/api/public/partner/shuttle-routes", paceBase);
 
     const res = await fetch(url, {
       method: "GET",
