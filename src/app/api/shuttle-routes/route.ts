@@ -7,9 +7,8 @@ export const dynamic = "force-dynamic";
  * Antigua Boats → Pace Shuttles proxy
  *
  * - Server-side only
- * - Hides operator key
+ * - Keeps the Pace partner API key server-side
  * - Avoids CSP / CORS issues
- * - Normalises Pace image URLs to the working Supabase host
  */
 
 function must(name: string): string {
@@ -20,53 +19,23 @@ function must(name: string): string {
   return v;
 }
 
-/**
- * Pace images are currently referenced from two Supabase project hosts.
- * We have confirmed by direct test that ONLY this host serves the images:
- */
-const WORKING_SUPABASE_HOST = "bopvaaexicvdueidyvjd.supabase.co";
-
-function normaliseSupabaseUrl(raw?: string): string | undefined {
-  if (!raw) return undefined;
-
-  try {
-    const u = new URL(raw);
-
-    // Only rewrite Supabase URLs
-    if (u.hostname.toLowerCase().endsWith(".supabase.co")) {
-      u.hostname = WORKING_SUPABASE_HOST;
-      u.protocol = "https:";
-    }
-
-    return u.toString();
-  } catch {
-    // If it's not a valid URL, return as-is
-    return raw;
-  }
-}
-
-function normaliseTileImages(tile: any) {
-  if (tile?.pickup?.image_url) {
-    tile.pickup.image_url = normaliseSupabaseUrl(tile.pickup.image_url);
-  }
-  if (tile?.destination?.image_url) {
-    tile.destination.image_url = normaliseSupabaseUrl(tile.destination.image_url);
-  }
-  return tile;
-}
-
 export async function GET() {
   try {
-    const BASE_URL = must("PACE_PARTNER_BASE_URL");
-    const OPERATOR_ID = must("PACE_OPERATOR_ID");
-    const OPERATOR_KEY = must("PACE_OPERATOR_KEY");
+    const paceBase = new URL(must("PACE_PARTNER_BASE_URL"));
+    const allowedHosts = new Set(["paceshuttles.com", "www.paceshuttles.com"]);
+    if (paceBase.protocol !== "https:" || !allowedHosts.has(paceBase.hostname.toLowerCase())) {
+      throw new Error("PACE_PARTNER_BASE_URL must use the Pace Shuttles HTTPS production host");
+    }
+    // Keep the already-provisioned secret; its legacy env name is internal to
+    // Antigua Boats and is not part of the Pace V2 HTTP contract.
+    const API_KEY = must("PACE_OPERATOR_KEY");
 
-    const url = `${BASE_URL}/api/public/partner/shuttle-routes?operator_id=${OPERATOR_ID}`;
+    const url = new URL("/api/public/partner/shuttle-routes", paceBase);
 
     const res = await fetch(url, {
       method: "GET",
       headers: {
-        "x-operator-key": OPERATOR_KEY,
+        "x-pace-api-key": API_KEY,
         accept: "application/json",
       },
       // absolutely no caching for price-sensitive data
@@ -86,11 +55,6 @@ export async function GET() {
     }
 
     const data = await res.json();
-
-    // Normalise images so all tiles reference the working Supabase host
-    if (Array.isArray(data?.tiles)) {
-      data.tiles = data.tiles.map(normaliseTileImages);
-    }
 
     return NextResponse.json({
       source: "pace-shuttles",

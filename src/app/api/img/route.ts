@@ -69,19 +69,11 @@ export async function GET(req: Request) {
     return svgPlaceholder("Host not allowed", 300);
   }
 
-  const anon = process.env.PACE_SUPABASE_ANON_KEY;
-
   const headers: Record<string, string> = {
     accept: "image/*",
     "user-agent": "AntiguaBoats/1.0 (+https://www.antigua-boats.com)",
     referer: "https://www.antigua-boats.com/",
   };
-
-  // optional: can help with some Supabase setups
-  if (anon) {
-    headers.apikey = anon;
-    headers.authorization = `Bearer ${anon}`;
-  }
 
   const target = u.toString();
 
