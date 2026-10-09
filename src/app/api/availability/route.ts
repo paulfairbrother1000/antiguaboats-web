@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { seatInventory, dateRange } from "@/lib/perSeatServer";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -312,7 +313,7 @@ export async function GET(req: Request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
-  if (!from || !to) {
+  if (!dateRange(from, to)) {
     return NextResponse.json({ error: "from and to parameters are required" }, { status: 400 });
   }
 
@@ -365,15 +366,25 @@ export async function GET(req: Request) {
     byDate.get(date)!.booked.push(slot);
   }
 
+  let seats;
+  try { seats = await seatInventory(from!, to!); }
+  catch { return NextResponse.json({ error: "Failed to load pay-per-seat availability" }, { status: 503 }); }
   const result = days.map((date) => {
     const booked = byDate.get(date)?.booked ?? [];
-    const available = computeAvailable(booked);
+    const available: string[] = computeAvailable(booked);
+    const seat = seats.find(s => s.date === date);
+    if (seat?.sold_seats) {
+      return { date, booked: [...booked, "SEAT_FD"], available: seat.bookable ? ["SEAT_FD"] : [],
+        sold_out: !seat.bookable, pay_per_seat: seat };
+    }
+    if (seat?.bookable && available.includes("FD")) available.push("SEAT_FD");
 
     return {
       date,
       booked,
       available,
       sold_out: available.length === 0,
+      pay_per_seat: seat,
     };
   });
 

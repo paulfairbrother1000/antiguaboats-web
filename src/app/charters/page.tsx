@@ -33,6 +33,12 @@ const charterTiles: CharterTile[] = [
     imageSrc: "/DayCharter.jpeg",
   },
   {
+    title: "Full Day Charter – Pay per seat",
+    desc: "10:00 – 17:00 Full day adventure around Antigua for individuals and small groups.",
+    slug: "full-day-pay-per-seat",
+    imageSrc: "/DayCharter.jpeg",
+  },
+  {
     title: "Restaurant Shuttle",
     desc: "Nobu & more • Arrive by sea (on request)",
     slug: "restaurant-shuttle",
@@ -95,8 +101,14 @@ export default function ChartersPage() {
       </section>
 
       <section className="mt-10">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {charterTiles.map((tile) => (
+        {[
+          { title: "Private Charters", description: "Enjoy the Caribbean’s finest beaches in the privacy and space of your own charter", tiles: charterTiles.slice(0,3) },
+          { title: "Shared Charters", description: "Accessible, luxury charter. Share the experience, and cost with others", tiles: charterTiles.slice(3) },
+        ].map(group => <section key={group.title} className="mb-10">
+          <h2 className="text-2xl font-extrabold text-slate-900">{group.title}</h2>
+          <p className="mt-2 mb-5 text-slate-700">{group.description}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {group.tiles.map((tile) => (
             <div key={tile.slug} className="overflow-hidden rounded-3xl border bg-white">
               <Link href={`/charters/${tile.slug}`} className="block">
                 <img
@@ -127,7 +139,7 @@ export default function ChartersPage() {
               </div>
             </div>
           ))}
-        </div>
+        </div></section>)}
       </section>
     </main>
   );

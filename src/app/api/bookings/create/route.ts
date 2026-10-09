@@ -75,6 +75,10 @@ export async function POST(req: Request) {
     } = body ?? {};
 
     const slot = body?.slot_mode ?? body?.slot;
+    if (slot === "SEAT_FD") {
+      const { createSeatBooking } = await import("@/lib/createSeatBooking");
+      return createSeatBooking(body);
+    }
 
     if (!date || typeof date !== "string") {
       return NextResponse.json({ error: "Missing date" }, { status: 400 });

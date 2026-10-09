@@ -6,10 +6,11 @@ import { DayPicker } from "react-day-picker";
 // IMPORTANT: do NOT import the default RDP stylesheet (it keeps fighting our layout)
 // import "react-day-picker/dist/style.css";
 
-type Slot = "FD" | "SHARED_FD" | "AM" | "PM" | "SS";
+type Slot = "SEAT_FD" | "FD" | "SHARED_FD" | "AM" | "PM" | "SS";
 type SharedFallbackChoice = "CANCEL_REFUND" | "HALF_DAY_AM" | "HALF_DAY_PM" | "FULL_DAY_UPGRADE";
 
 const SLOT_LABEL: Record<Slot, string> = {
+  SEAT_FD: "Full Day Charter – Pay per seat",
   FD: "Full Day Charter",
   SHARED_FD: "Full Day Shared Charter",
   AM: "½ Day (Morning)",
@@ -29,7 +30,8 @@ const NOBU_FUEL_CENTS = 200 * 100;
 const LUNCH_PER_HEAD_CENTS = 50 * 100;
 
 // ✅ Map booking slot_modes to your existing charter_types slugs (source of truth)
-const SLOT_TO_SLUG: Record<Slot, "day" | "full-day-shared" | "half-day" | "sunset"> = {
+const SLOT_TO_SLUG: Record<Slot, "full-day-pay-per-seat" | "day" | "full-day-shared" | "half-day" | "sunset"> = {
+  SEAT_FD: "full-day-pay-per-seat",
   FD: "day",
   SHARED_FD: "full-day-shared",
   AM: "half-day",
@@ -42,6 +44,7 @@ const STANDARD_FULLY_AVAILABLE_SLOTS: Slot[] = ["FD", "AM", "PM", "SS"];
 function normalizeSlot(value: unknown): Slot | null {
   const raw = String(value ?? "").trim().toUpperCase();
 
+  if (raw === "SEAT_FD") return "SEAT_FD";
   if (raw === "FD" || raw === "FULL_DAY" || raw === "FULL-DAY" || raw === "DAY") return "FD";
   if (
     raw === "SHARED_FD" ||
@@ -93,6 +96,7 @@ function normalizeDayAvailability(row: any): DayAvail {
     booked,
     available: uniqSlots(available),
     sold_out: soldOut,
+    pay_per_seat: row?.pay_per_seat,
   };
 }
 
@@ -125,6 +129,7 @@ type DayAvail = {
   booked: Slot[];
   available: Slot[];
   sold_out: boolean;
+  pay_per_seat?: { sold_seats: number; needed_seats: number; remaining_seats: number; unit_price_cents: number; discounted: boolean; };
 };
 
 function startOfMonth(d: Date) {
@@ -296,6 +301,8 @@ export default function BookingPage() {
 
     if (day.sold_out || available.length === 0) return "unavailable";
 
+    if (booked.includes("SEAT_FD") && available.includes("SEAT_FD")) return "seat-partial";
+
     const sharedFullDayPartBooked =
       booked.includes("SHARED_FD") && available.includes("SHARED_FD");
 
@@ -320,6 +327,14 @@ export default function BookingPage() {
       return (day.available?.length ?? 0) === 0;
     };
   }, [availByDate, minBookDate, maxBookDate]);
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("date");
+    if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const parsed = new Date(`${raw}T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) { setSelectedDate(parsed); setMonth(startOfMonth(parsed)); }
+    }
+  }, []);
 
   // When date changes, ALWAYS clear slot (no pre-select / no leading)
   useEffect(() => {
@@ -528,6 +543,11 @@ export default function BookingPage() {
           border-color: #e2e8f0;
           color: #0f172a;
         }
+        .ab-rdp .ab-seat-partial .rdp-day_button {
+          background: #a855f7;
+          border-color: #a855f7;
+          color: #fff;
+        }
         .ab-rdp .ab-shared-partial .rdp-day_button {
           background: #2dd4bf;
           border-color: #2dd4bf;
@@ -704,7 +724,7 @@ export default function BookingPage() {
                 <div>
                   <h2 className="text-xl font-semibold">Step 1 — select charter type and date</h2>
                   <p className="text-sm text-slate-600">
-                    Black = unavailable • Grey = partly available • White = fully available • Turquoise = Shared Day Charter available
+                    Black = unavailable • Grey = partly available • White = fully available • Turquoise = Shared Day Charter available • Purple = Pay per Seat seats available
                   </p>
                 </div>
                 {loadingAvail && <span className="text-sm text-slate-500">Loading…</span>}
@@ -744,6 +764,7 @@ export default function BookingPage() {
                     past: (date) => isBeforeToday(date, today),
                     unavailable: (date) => dayClass(date) === "unavailable",
                     partial: (date) => dayClass(date) === "partial",
+                    seatPartial: (date) => dayClass(date) === "seat-partial",
                     sharedPartial: (date) => dayClass(date) === "shared-partial",
                     available: (date) => dayClass(date) === "available",
                   }}
@@ -752,6 +773,7 @@ export default function BookingPage() {
                     unavailable: "ab-unavailable",
                     partial: "ab-partial",
                     sharedPartial: "ab-shared-partial",
+                    seatPartial: "ab-seat-partial",
                     available: "ab-available",
                   }}
                 />
@@ -824,7 +846,7 @@ export default function BookingPage() {
                       const enabled = selectedDayAvail?.available?.includes(slot) ?? false;
                       const selected = selectedSlot === slot;
 
-                      const priceCents = getSlotPriceCents(slot);
+                      const priceCents = slot === "SEAT_FD" ? selectedDayAvail.pay_per_seat?.unit_price_cents ?? null : getSlotPriceCents(slot);
 
                       return (
                         <button
@@ -832,6 +854,10 @@ export default function BookingPage() {
                           type="button"
                           onClick={() => {
                             if (!enabled) return;
+                            if (slot === "SEAT_FD") {
+                              window.location.href = `/booking/per-seat?date=${isoDate(selectedDate!)}`;
+                              return;
+                            }
                             setSelectedSlot(slot);
                             if (slot !== "FD") {
                               setNobu(false);
@@ -851,6 +877,10 @@ export default function BookingPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <div className="font-semibold">{SLOT_LABEL[slot]}</div>
+                              {slot === "SEAT_FD" && selectedDayAvail.pay_per_seat && <div className="mt-1 text-xs text-purple-700">
+                                {selectedDayAvail.pay_per_seat.sold_seats} booked · {selectedDayAvail.pay_per_seat.remaining_seats} available · {selectedDayAvail.pay_per_seat.needed_seats} needed to confirm
+                                {selectedDayAvail.pay_per_seat.discounted && " · REDUCED"}
+                              </div>}
                               {slot === "SHARED_FD" && (
                                 <div
                                   className={
@@ -865,7 +895,7 @@ export default function BookingPage() {
                             </div>
                             <div className={selected ? "text-white" : "text-slate-900"}>
                               <span className="text-base font-semibold">
-                                {priceCents !== null ? money(priceCents) : "—"}
+                                {priceCents !== null ? money(priceCents) : "—"}{slot === "SEAT_FD" ? " / seat" : ""}
                               </span>
                             </div>
                           </div>

@@ -1,0 +1,15 @@
+# Pay-per-seat charter operations
+
+The current Antigua Boats mock flow is retained, as requested. Real payments/Stripe integration for the whole site is a separate phase. Per-seat bookings record PAID_MOCK; surcharges are mock ledger entries and cancellation refunds are REFUNDED_MOCK. No real charge/refund is executed.
+
+Vehicle settings live in public.charter_vehicles. Initial Silver Lady settings: target revenue $1,800, minimum 6 seats, capacity 8 (matching the existing shared charter), operator contribution up to $200, surcharge cap $100 per seat, promotion 20%. Existing trips snapshot settings; existing bookings snapshot seat price and compulsory consent. Configure future pricing by editing the vehicle row; changes do not retroactively change already opened trips.
+
+Database job antigua-seat-charter-t24 runs every five minutes, independently of page views. It atomically decides only once per trip and records the billing events and notification queue. Mock refunds are recorded as negative REFUND ledger entries with REFUNDED_MOCK status; they do not execute a real refund.
+
+Vercel /api/cron/charters runs every 15 minutes. CRON_SECRET authenticates it. To enable outgoing mail, configure RESEND_API_KEY and CHARTER_EMAIL_FROM using an Antigua Boats sender verified by the mail provider. Operator recipient comes from the vehicle row (currently hello@antigua-boats.com, matching the public contact page). No recipient details appear in the public offer feed. Pending/retry/sent status is visible at /admin/bookings.
+
+Live offers: /api/specialoffers defaults to discounted inventory only. ?discounted=false includes all part-booked shared/pay-per-seat charters and discounted shuttle seats. Responses include live availability, USD price, expiry, booking URL and promotion_text. They never contain customer data. Consumers must re-fetch before publishing and remove expired offers. If an upstream source is unavailable, API returns 503 rather than an invented empty list.
+
+Pace V2: partner-special-offers Edge Function validates the existing x-pace-api-key through the partner catalogue. It advertises only minimum-met discounted seats in T-72..T-24, using the existing live offer engine and including taxes/fees. Booking rechecks party size and price before redirecting to Pace checkout. The Pace migration in this repository is explicitly labelled and applies to Pace V2; the other migrations apply to Antigua Boats.
+
+Social publishing is not connected in this workspace. The live API supplies usable advertising copy, including vehicle details from the database (Silver Lady is currently Nor-Tech 390 Sport; do not publish the supplied example of a 340 as factual). Instagram/Facebook/TikTok/Google ads and Facebook-group posting need their respective account/channel access. No social posts or paid ads were sent by this deployment.

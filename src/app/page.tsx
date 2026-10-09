@@ -28,6 +28,11 @@ const charterTiles = [
     imageSrc: "/DayCharter.jpeg",
   },
   {
+    title: "Full Day Charter – Pay per seat",
+    desc: "10:00 – 17:00 Full day adventure around Antigua for individuals and small groups.",
+    slug: "full-day-pay-per-seat", imageSrc: "/DayCharter.jpeg",
+  },
+  {
     title: "Restaurant Shuttle",
     desc: "Nobu & more • Arrive by sea (on request)",
     slug: "restaurant-shuttle",
@@ -83,6 +88,13 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 pb-6">
+        <Link href="/specialoffers" className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-purple-200 bg-purple-50 p-6">
+          <div><h2 className="text-xl font-bold text-purple-950">Share the experience — discover shared trips and special offers</h2>
+          <p className="mt-2 text-purple-900">See live availability for shared charters, pay-per-seat adventures and discounted seats.</p></div>
+          <span className="font-bold text-purple-800">Explore trips →</span>
+        </Link>
+      </section>
       {/* MEET ANTIGUA BOATS */}
       <section className="py-6">
         <div className="mx-auto max-w-6xl px-4">
